@@ -1,11 +1,11 @@
-// filepath: components/ForgotPasswordScreen.tsx
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { TextInput, Button, Text } from 'react-native-paper';
 import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
-import app from '../firebaseConfig';
+import { router } from 'expo-router';
+import { app } from '../firebaseConfig';
 
-const ForgotPasswordScreen = () => {
+export default function ForgotPassword() {
     const [email, setEmail] = useState('');
 
     const handlePasswordReset = async () => {
@@ -17,15 +17,17 @@ const ForgotPasswordScreen = () => {
         const auth = getAuth(app);
         try {
             await sendPasswordResetEmail(auth, email);
-            Alert.alert('Password Reset', `A reset link has been sent to ${email}`);
+            Alert.alert('Password Reset', `A reset link has been sent to ${email}`, [
+                { text: 'OK', onPress: () => router.replace('/login') }
+            ]);
         } catch (error: any) {
-            console.log(error); // Log the error for debugging
+            console.log(error);
             handleFirebaseError(error);
         }
     };
 
     const handleFirebaseError = (error: any) => {
-        console.log(error.code); // Log the error code for debugging
+        console.log(error.code);
         let message = 'An error occurred. Please try again.';
         switch (error.code) {
             case 'auth/invalid-email':
@@ -35,7 +37,7 @@ const ForgotPasswordScreen = () => {
                 message = 'No account found with this email.';
                 break;
             default:
-                message = error.message; // Use Firebase's error message for unexpected errors
+                message = error.message;
                 break;
         }
         Alert.alert('Error', message);
@@ -57,7 +59,7 @@ const ForgotPasswordScreen = () => {
             </Button>
         </View>
     );
-};
+}
 
 const styles = StyleSheet.create({
     container: {
@@ -81,5 +83,3 @@ const styles = StyleSheet.create({
         backgroundColor: '#007BFF',
     },
 });
-
-export default ForgotPasswordScreen;

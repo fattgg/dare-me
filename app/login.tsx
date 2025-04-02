@@ -1,35 +1,50 @@
-// filepath: components/LoginScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { TextInput, Button, Text } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../constants/types';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import app from '../firebaseConfig';
+import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { useIdTokenAuthRequest } from 'expo-auth-session/providers/google';
+import { router } from 'expo-router';
+import { app, auth } from '../firebaseConfig';
 
-const LoginScreen = () => {
+export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const [request, response, promptAsync] = useIdTokenAuthRequest({
+        clientId: '883347608544-9qfpfo449nh7niobqhu4mps0s4lthj53.apps.googleusercontent.com',
+        redirectUri: 'https://auth.expo.io/@fatlindosmanii/DareMe',
+    });
+
+    useEffect(() => {
+        if (response?.type === 'success') {
+            const { id_token } = response.params;
+            const credential = GoogleAuthProvider.credential(id_token);
+            signInWithCredential(auth, credential)
+                .then(() => {
+                    Alert.alert('Success', 'Logged in with Google!');
+                })
+                .catch((error) => {
+                    Alert.alert('Error', error.message);
+                });
+        }
+    }, [response]);
 
     const handleLogin = async () => {
         const auth = getAuth(app);
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             Alert.alert('Login Successful', `Welcome back, ${userCredential.user.email}!`);
-            navigation.navigate('Challenges');
+            router.replace('../challenges');
         } catch (error: any) {
             Alert.alert('Login Failed', error.message);
         }
     };
 
     const handleSignUp = () => {
-        navigation.navigate('SignUp');
+        router.push('../signup');
     };
 
     const handleForgotPassword = () => {
-        navigation.navigate('ForgotPassword');
+        router.push('../forgot-password');
     };
 
     return (
@@ -59,9 +74,17 @@ const LoginScreen = () => {
             <Button mode="outlined" onPress={handleSignUp} style={styles.signUpButton}>
                 Sign Up
             </Button>
+            <Button
+                mode="contained"
+                onPress={() => promptAsync()}
+                disabled={!request}
+                style={styles.googleButton}
+            >
+                Sign in with Google
+            </Button>
         </View>
     );
-};
+}
 
 const styles = StyleSheet.create({
     container: {
@@ -94,6 +117,8 @@ const styles = StyleSheet.create({
         marginTop: 10,
         borderColor: '#007BFF',
     },
+    googleButton: {
+        marginTop: 20,
+        backgroundColor: '#4285F4',
+    },
 });
-
-export default LoginScreen;

@@ -1,20 +1,16 @@
-// filepath: components/SignUpScreen.tsx
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { TextInput, Button, Text } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../constants/types';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { getDatabase, ref, set } from 'firebase/database';
+import { router } from 'expo-router';
 import { app } from '../firebaseConfig';
 
-const SignUpScreen = () => {
+export default function SignUp() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [name, setName] = useState('');
-    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
     const auth = getAuth(app);
     const db = getDatabase(app);
@@ -26,12 +22,12 @@ const SignUpScreen = () => {
         }
 
         try {
-            console.log("📩 Attempting to create user...");  // ✅ Debug log
+            console.log("📩 Attempting to create user...");
 
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            console.log("✅ User created:", user);  // ✅ Debug log
+            console.log("✅ User created:", user);
 
             await set(ref(db, `users/${user.uid}`), {
                 name: name,
@@ -39,17 +35,16 @@ const SignUpScreen = () => {
                 createdAt: new Date().toISOString(),
             });
 
-            console.log("✅ User data saved to DB");  // ✅ Debug log
+            console.log("✅ User data saved to DB");
 
-            // ✅ Ensure Alert is triggered in the UI
             setTimeout(() => {
                 Alert.alert('🎉 Success!', 'Your account has been created!', [
-                    { text: "OK", onPress: () => navigation.navigate('Login') }
+                    { text: "OK", onPress: () => router.replace('/login') }
                 ]);
-            }, 500);  // Small delay to ensure UI updates
+            }, 500);
 
         } catch (error: any) {
-            console.error("🚨 Sign Up Error:", error);  // ✅ Debug log
+            console.error("🚨 Sign Up Error:", error);
             Alert.alert('Sign Up Failed', error.message);
         }
     };
@@ -90,7 +85,7 @@ const SignUpScreen = () => {
             </Button>
         </View>
     );
-};
+}
 
 const styles = StyleSheet.create({
     container: {
@@ -114,5 +109,3 @@ const styles = StyleSheet.create({
         backgroundColor: '#007BFF',
     },
 });
-
-export default SignUpScreen;
