@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, Button } from 'react-native';
 import { auth, db } from '../firebaseConfig';
-import { ref, onValue } from 'firebase/database'; // For fetching data
+import { ref, onValue, update } from 'firebase/database'; // For fetching and updating data
 import { useRouter } from 'expo-router';
 
 export default function MyDares() {
@@ -25,7 +25,7 @@ export default function MyDares() {
                         ...data[key],
                     }));
 
-                    // Filter dares accepted by the current user
+                    // Show all dares accepted by the current user, regardless of status
                     const userDares = formattedDares.filter((dare) => dare.acceptedBy === user.uid);
                     setMyDares(userDares);
                 } else {
@@ -39,11 +39,28 @@ export default function MyDares() {
         fetchMyDares();
     }, []);
 
+    const handleMarkAsCompleted = async (dareId: string) => {
+        try {
+            const dareRef = ref(db, `dares/${dareId}`);
+            await update(dareRef, {
+                status: 'completed', // Update the status to "completed"
+            });
+
+            Alert.alert('Success', 'You have marked the dare as completed!');
+        } catch (error) {
+            console.error('Error marking dare as completed:', error);
+            Alert.alert('Error', 'Failed to mark the dare as completed. Please try again.');
+        }
+    };
+
     const renderDare = ({ item }: { item: any }) => (
         <View style={styles.dareItem}>
             <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
             <Text style={styles.dareText}>Reward: {item.reward}</Text>
             <Text style={styles.dareText}>Status: {item.status}</Text>
+            {item.status !== 'completed' && (
+                <Button title="Mark as Completed" onPress={() => handleMarkAsCompleted(item.id)} />
+            )}
         </View>
     );
 

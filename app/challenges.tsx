@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, FlatList, Alert, Platform } from 'react-native';
+import { View, Text, Button, StyleSheet, FlatList, Alert, Platform, TouchableOpacity } from 'react-native';
 import { auth, db } from '../firebaseConfig';
-import { ref, onValue, update } from 'firebase/database'; // For fetching and updating data
+import { ref, onValue, update, remove } from 'firebase/database';
+import { Swipeable } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 
 export default function Challenges() {
@@ -22,7 +23,7 @@ export default function Challenges() {
             }
         });
 
-        return () => unsubscribe(); // Cleanup the listener on unmount
+        return () => unsubscribe();
     }, []);
 
     const handleAcceptDare = async (dareId: string) => {
@@ -46,18 +47,43 @@ export default function Challenges() {
         }
     };
 
+    const handleDeleteDare = async (dareId: string) => {
+        try {
+            const dareRef = ref(db, `dares/${dareId}`);
+            await remove(dareRef); // Delete the dare from Firebase
+            Alert.alert('Success', 'Dare deleted successfully!');
+        } catch (error) {
+            console.error('Error deleting dare:', error);
+            Alert.alert('Error', 'Failed to delete the dare. Please try again.');
+        }
+    };
+
+    const renderRightActions = (dareId: string) => (
+        <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteDare(dareId)}
+        >
+            <Text style={styles.deleteButtonText}>Delete</Text>
+        </TouchableOpacity>
+    );
+
     const renderDare = ({ item }: { item: any }) => (
-        <View style={styles.dareItem}>
-            <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
-            <Text style={styles.dareText}>Reward: {item.reward}</Text>
-            <Text style={styles.dareText}>Posted by: {item.username || 'Anonymous'}</Text>
-            <Text style={styles.dareText}>
-                Status: {item.status === 'in-progress' ? 'In Progress' : 'Available'}
-            </Text>
-            {item.status !== 'in-progress' && (
-                <Button title="Accept Dare" onPress={() => handleAcceptDare(item.id)} />
-            )}
-        </View>
+        <Swipeable
+            renderRightActions={() => renderRightActions(item.id)} // Swipe left to show the delete button
+        >
+            <View style={styles.dareItem}>
+                <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
+                <Text style={styles.dareText}>Reward: {item.reward}</Text>
+                <Text style={styles.dareText}>Posted by: {item.username || 'Anonymous'}</Text>
+                <Text style={styles.dareText}>
+                    Status: {item.status === 'completed' ? 'Completed' : item.status === 'in-progress' ? 'In Progress' : 'Available'}
+                </Text>
+                {/* Show the "Accept Dare" button only if the dare is available */}
+                {item.status !== 'in-progress' && item.status !== 'completed' && (
+                    <Button title="Accept Dare" onPress={() => handleAcceptDare(item.id)} />
+                )}
+            </View>
+        </Swipeable>
     );
 
     const handleLogout = async () => {
@@ -78,7 +104,6 @@ export default function Challenges() {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Available Dares</Text>
-            <Button title="Logout" onPress={handleLogout} />
             <Button
                 title="Post a Dare"
                 onPress={() => router.push('/create-dare')}
@@ -93,6 +118,7 @@ export default function Challenges() {
                 renderItem={renderDare}
                 contentContainerStyle={styles.list}
             />
+            <Button title="Logout" onPress={handleLogout} color="red" />
         </View>
     );
 }
@@ -122,5 +148,16 @@ const styles = StyleSheet.create({
     },
     dareText: {
         fontSize: 16,
+    },
+    deleteButton: {
+        backgroundColor: 'red',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 80,
+        height: '100%',
+    },
+    deleteButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
     },
 });
