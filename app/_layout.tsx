@@ -12,6 +12,7 @@ export default function Layout() {
             <Stack.Screen name="challenges" options={{ title: 'Challenges' }} />
             <Stack.Screen name="signup" options={{ title: 'Sign Up' }} />
             <Stack.Screen name="forgot-password" options={{ title: 'Forgot Password' }} />
+            <Stack.Screen name="create-dare" options={{ title: 'Create Dare' }} />
         </Stack>
     );
 }
