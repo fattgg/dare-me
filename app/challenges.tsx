@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, StyleSheet, FlatList, Alert, Platform } from 'react-native';
 import { auth, db } from '../firebaseConfig';
-import { ref, onValue } from 'firebase/database'; // For fetching data
+import { ref, onValue, update } from 'firebase/database'; // For fetching and updating data
 import { router } from 'expo-router';
 
 export default function Challenges() {
@@ -25,6 +25,41 @@ export default function Challenges() {
         return () => unsubscribe(); // Cleanup the listener on unmount
     }, []);
 
+    const handleAcceptDare = async (dareId: string) => {
+        try {
+            const user = auth.currentUser;
+            if (!user) {
+                Alert.alert('Error', 'You must be logged in to accept a dare.');
+                return;
+            }
+
+            const dareRef = ref(db, `dares/${dareId}`);
+            await update(dareRef, {
+                status: 'in-progress', // Update the status to "in-progress"
+                acceptedBy: user.uid, // Track the user who accepted the dare
+            });
+
+            Alert.alert('Success', 'You have accepted the dare!');
+        } catch (error) {
+            console.error('Error accepting dare:', error);
+            Alert.alert('Error', 'Failed to accept the dare. Please try again.');
+        }
+    };
+
+    const renderDare = ({ item }: { item: any }) => (
+        <View style={styles.dareItem}>
+            <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
+            <Text style={styles.dareText}>Reward: {item.reward}</Text>
+            <Text style={styles.dareText}>Posted by: {item.username || 'Anonymous'}</Text>
+            <Text style={styles.dareText}>
+                Status: {item.status === 'in-progress' ? 'In Progress' : 'Available'}
+            </Text>
+            {item.status !== 'in-progress' && (
+                <Button title="Accept Dare" onPress={() => handleAcceptDare(item.id)} />
+            )}
+        </View>
+    );
+
     const handleLogout = async () => {
         try {
             if (Platform.OS === 'web') {
@@ -40,21 +75,17 @@ export default function Challenges() {
         }
     };
 
-    const renderDare = ({ item }: { item: any }) => (
-        <View style={styles.dareItem}>
-            <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
-            <Text style={styles.dareText}>Reward: {item.reward}</Text>
-            <Text style={styles.dareText}>Posted by: {item.username}</Text>
-        </View>
-    );
-
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Welcome to Challenges Screen!</Text>
+            <Text style={styles.title}>Available Dares</Text>
             <Button title="Logout" onPress={handleLogout} />
             <Button
                 title="Post a Dare"
                 onPress={() => router.push('/create-dare')}
+            />
+            <Button
+                title="My Accepted Dares"
+                onPress={() => router.push('/my-dares')}
             />
             <FlatList
                 data={dares}
