@@ -44,6 +44,7 @@ export default function Challenges() {
         <View style={styles.dareItem}>
             <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
             <Text style={styles.dareText}>Reward: {item.reward}</Text>
+            <Text style={styles.dareText}>Posted by: {item.username}</Text>
         </View>
     );
 
@@ -52,7 +53,7 @@ export default function Challenges() {
             <Text style={styles.title}>Welcome to Challenges Screen!</Text>
             <Button title="Logout" onPress={handleLogout} />
             <Button
-                title="Create a Dare"
+                title="Post a Dare"
                 onPress={() => router.push('/create-dare')}
             />
             <FlatList

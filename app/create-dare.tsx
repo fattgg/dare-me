@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
-import { db } from '../firebaseConfig'; // Import Firebase database
+import { db, auth } from '../firebaseConfig'; // Import Firebase database and auth
 import { ref, push } from 'firebase/database'; // For Realtime Database
 import { useRouter } from 'expo-router';
 
@@ -16,26 +16,35 @@ export default function CreateDare() {
         }
 
         try {
+            const user = auth.currentUser; // Get the currently logged-in user
+            if (!user) {
+                Alert.alert('Error', 'You must be logged in to create a dare.');
+                return;
+            }
+
+            // Save the dare to Firebase Realtime Database
             const daresRef = ref(db, 'dares');
             await push(daresRef, {
                 challenge,
                 reward,
+                userId: user.uid, // Associate the dare with the user's ID
+                username: user.email || 'Anonymous', // Use the user's email or a default name
                 createdAt: new Date().toISOString(),
             });
 
-            Alert.alert('Success', 'Dare created successfully!');
+            Alert.alert('Success', 'Dare posted successfully!');
             setChallenge('');
             setReward('');
-            router.replace('/challenges');
+            router.replace('/challenges'); // Redirect to Challenges screen
         } catch (error) {
             console.error('Error creating dare:', error);
-            Alert.alert('Error', 'Failed to create dare. Please try again.');
+            Alert.alert('Error', 'Failed to post dare. Please try again.');
         }
     };
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Create a Dare</Text>
+            <Text style={styles.title}>Post a Dare</Text>
             <TextInput
                 style={styles.input}
                 placeholder="Enter the challenge"
@@ -48,7 +57,7 @@ export default function CreateDare() {
                 value={reward}
                 onChangeText={setReward}
             />
-            <Button title="Create Dare" onPress={handleCreateDare} />
+            <Button title="Post Dare" onPress={handleCreateDare} />
         </View>
     );
 }
