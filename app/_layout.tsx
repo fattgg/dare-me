@@ -7,11 +7,27 @@ export default function Layout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <Stack
                 screenOptions={{
-                    headerShown: true, // Show headers for all screens
+                    headerShown: true, // Default: shfaq header për të gjitha ekranet
                 }}
             >
-                <Stack.Screen name="index" options={{ title: 'Home' }} />
-                <Stack.Screen name="login" options={{ title: 'Login' }} />
+                <Stack.Screen 
+                    name="index" 
+                    options={{ 
+                        title: 'Home', 
+                        headerShown: false, // Mos shfaq header për faqen e parë
+                    }} 
+                />
+                <Stack.Screen 
+                    name="login" 
+                    options={{ 
+                        title: 'Login', 
+                        headerBackVisible: false, // Mos shfaq butonin "back"
+                        headerStyle: {
+                            backgroundColor: '#6A0DAD', // Vjollcë më e thellë, mund ta ndryshoni sipas nevojës
+                        },
+                        headerTintColor: '#fff', // Titulli do të jetë i bardhë
+                    }} 
+                />
                 <Stack.Screen name="challenges" options={{ title: 'Challenges' }} />
                 <Stack.Screen name="signup" options={{ title: 'Sign Up' }} />
                 <Stack.Screen name="forgot-password" options={{ title: 'Forgot Password' }} />

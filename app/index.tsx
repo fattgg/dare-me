@@ -1,37 +1,46 @@
-import { Redirect } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { auth } from '../firebaseConfig';
+import { useNavigation } from 'expo-router';
+import { useRef } from 'react';
+import { Animated, StyleSheet, Text, View, Pressable } from 'react-native';
 
-export default function Index() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function Home() {
+  const navigation = useNavigation();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
+  const handlePress = () => {
+    Animated.timing(scaleAnim, {
+      toValue: 1.3, // vetëm rritje
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      navigation.navigate('login'); // kalon direkt pas animacionit
     });
+  };
 
-    return unsubscribe;
-  }, []);
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-      </View>
-    );
-  }
-
-  return user ? <Redirect href="/challenges" /> : <Redirect href="/login" />;
+  return (
+    <View style={styles.container}>
+      <Pressable
+        onPress={handlePress}
+        android_ripple={null}
+        style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
+      >
+        <Animated.Text style={[styles.title, { transform: [{ scale: scaleAnim }] }]}>
+          DareMe
+        </Animated.Text>
+      </Pressable>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
+  container: {
     flex: 1,
+    backgroundColor: '#EEDCF8', // vjollcë e lehtë
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  title: {
+    fontSize: 40,
+    fontWeight: 'bold',
+    color: '#800080', // vjollce
   },
 });
