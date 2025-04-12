@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "DareMe",
-    "slug": "DareMe",
-    "owner": "fatlindosmanii",
+    "slug": "dareme",
+    "owner": "fatlindosmani",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -37,6 +37,20 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "f9a01106-c8d7-4f02-9746-abbbd9e765c3"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f9a01106-c8d7-4f02-9746-abbbd9e765c3"
     }
   }
 }
