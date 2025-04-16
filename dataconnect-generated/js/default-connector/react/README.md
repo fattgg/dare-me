@@ -60,7 +60,7 @@ A connector is a collection of Queries and Mutations. One SDK is generated for e
 You can find more information about connectors in the [Data Connect documentation](https://firebase.google.com/docs/data-connect#how-does).
 
 ```javascript
-import { getDataConnect, DataConnect } from 'firebase/data-connect';
+import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig } from '@firebasegen/default-connector';
 
 const dataConnect = getDataConnect(connectorConfig);
@@ -73,7 +73,7 @@ To connect to the emulator, you can use the following code.
 You can also follow the emulator instructions from the [Data Connect documentation](https://firebase.google.com/docs/data-connect/web-sdk#emulator-react).
 
 ```javascript
-import { connectDataConnectEmulator, getDataConnect, DataConnect } from 'firebase/data-connect';
+import { connectDataConnectEmulator, getDataConnect } from 'firebase/data-connect';
 import { connectorConfig } from '@firebasegen/default-connector';
 
 const dataConnect = getDataConnect(connectorConfig);

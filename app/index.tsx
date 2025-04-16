@@ -1,59 +1,81 @@
-import { useNavigation } from 'expo-router';
-import { useRef, useEffect } from 'react';
-import { Animated, StyleSheet, Text, View, Pressable } from 'react-native';
-import { auth } from '../firebaseConfig'; // Import Firebase auth
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, View, Image } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { auth } from '../firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
+import { LinearGradient } from 'expo-linear-gradient';
+
+// Import the logo image
+const logo = require('../assets/images/logo-1-dareme.png');
 
 export default function Home() {
   const navigation = useNavigation();
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Animation value for fading out the logo
+  const fadeOutAnim = useRef(new Animated.Value(1)).current;
+
+  // Animation value for scaling the logo
+  const logoScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Check if the user is already logged in
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        // If the user is logged in, navigate to the main screen
-        navigation.navigate('challenges');
-      }
+    // Scale-in animation for the logo on initial load
+    Animated.timing(logoScale, {
+      toValue: 1, // Final scale size
+      duration: 800, // Duration of the animation
+      useNativeDriver: true, // Use native driver for better performance
+    }).start();
+
+    // Check the authentication state of the user
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      // Wait 2 seconds before starting fade-out and navigation
+      setTimeout(() => {
+        // Fade-out animation for the logo
+        Animated.timing(fadeOutAnim, {
+          toValue: 0.01,
+          duration: 1000,
+          useNativeDriver: true,
+        }).start(() => {
+          // Navigate to the correct screen based on user's auth state
+          if (user) {
+            navigation.replace('challenges'); // If user is logged in
+          } else {
+            navigation.replace('login'); // If user is not logged in
+          }
+        });
+      }, 2000); // Delay of 2 seconds
     });
 
-    return () => unsubscribe(); // Cleanup the listener on unmount
-  }, [navigation]);
-
-  const handlePress = () => {
-    Animated.timing(scaleAnim, {
-      toValue: 1.3, // Scale up animation
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      navigation.navigate('login'); // Navigate to login screen if no user is logged in
-    });
-  };
+    // Cleanup the listener when the component unmounts
+    return unsubscribe;
+  }, []);
 
   return (
-    <View style={styles.container}>
-      <Pressable
-        onPress={handlePress}
-        android_ripple={null}
-        style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
-      >
-        <Animated.Text style={[styles.title, { transform: [{ scale: scaleAnim }] }]}>
-          DareMe
-        </Animated.Text>
-      </Pressable>
-    </View>
+    // Background gradient from purple to lavender
+    <LinearGradient colors={['#4B0082', '#B788C4']} style={styles.gradient}>
+      {/* Wrapper for the animated logo view with fading effect */}
+      <Animated.View style={[styles.container, { opacity: fadeOutAnim }]}>
+        {/* Animated logo with scaling effect */}
+        <Animated.View style={{ transform: [{ scale: logoScale }] }}>
+          <Image source={logo} style={styles.logo} />
+        </Animated.View>
+      </Animated.View>
+    </LinearGradient>
   );
 }
 
+// Styling for the components
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1, // Fill the whole screen
+  },
   container: {
     flex: 1,
-    backgroundColor: '#EEDCF8', // Light purple
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center', // Center the logo vertically
+    alignItems: 'center', // Center the logo horizontally
   },
-  title: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: '#800080', // Purple
+  logo: {
+    width: 200,
+    height: 200,
+    marginTop: 10,
   },
 });
