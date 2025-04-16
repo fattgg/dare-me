@@ -1,224 +1,163 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Alert, Platform, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard } from 'react-native';
-import { TextInput, Button, Text } from 'react-native-paper';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getDatabase, ref, set } from 'firebase/database';
-import { router } from 'expo-router';
-import { app } from '../firebaseConfig';
-import { LinearGradient } from 'expo-linear-gradient';
+"use client"
 
-// Kontrollo nëse është platforma web
-const isWeb = Platform.OS === 'web';
+import { useState } from "react"
+import { View, StyleSheet, Alert, Platform, Text, TextInput } from "react-native"
+import { Button } from "react-native-paper"
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth"
+import { getDatabase, ref, set } from "firebase/database"
+import { router } from "expo-router"
+import { app } from "../firebaseConfig"
+import { LinearGradient } from "expo-linear-gradient"
+
+const isWeb = Platform.OS === "web"
 
 export default function SignUp() {
-    // State për inputet
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [name, setName] = useState('');
+    const [email, setEmail] = useState("")
+    const [password, setPassword] = useState("")
+    const [confirmPassword, setConfirmPassword] = useState("")
+    const [name, setName] = useState("")
 
-    // Inicializo auth dhe database
-    const auth = getAuth(app);
-    const db = getDatabase(app);
+    const auth = getAuth(app)
+    const db = getDatabase(app)
 
-    // Funksioni për regjistrim të përdoruesit
     const handleSignUp = async () => {
-        // Kontrollo nëse passwordet përputhen
         if (password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match!');
-            return;
+            Alert.alert("Error", "Passwords do not match!")
+            return
         }
 
         try {
-            console.log("📩 Attempting to create user...");
+            console.log("📩 Attempting to create user...")
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+            const user = userCredential.user
 
-            // Krijo përdoruesin në Firebase
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
-
-            console.log("✅ User created:", user);
-
-            // Ruaj të dhënat e përdoruesit në bazën e të dhënave
+            console.log("✅ User created:", user)
             await set(ref(db, `users/${user.uid}`), {
                 name: name,
                 email: email,
                 createdAt: new Date().toISOString(),
-            });
+            })
 
-            console.log("✅ User data saved to DB");
-
-            // Trego një mesazh sukses
+            console.log("✅ User data saved to DB")
             setTimeout(() => {
-                Alert.alert('🎉 Success!', 'Your account has been created!', [
-                    { text: "OK", onPress: () => router.replace('/login') }
-                ]);
-            }, 500);
-
-        } catch (error: any) {
-            console.error("🚨 Sign Up Error:", error);
-            Alert.alert('Sign Up Failed', error.message);
+                Alert.alert("🎉 Success!", "Your account has been created!", [
+                    { text: "OK", onPress: () => router.replace("/login") },
+                ])
+            }, 500)
+        } catch (error) {
+            console.error("🚨 Sign Up Error:", error)
+            Alert.alert("Sign Up Failed", error.message)
         }
-    };
-
-    // Komponenti për Glassmorphism
-    const GlassContainer = ({ children }: { children: React.ReactNode }) => {
-        return (
-            <View style={isWeb ? styles.glassContainerWeb : styles.glassContainer}>
-                {children}
-            </View>
-        );
-    };
+    }
 
     return (
-        <LinearGradient colors={['#4B0082', '#B788C4']} style={styles.gradient}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.container}
-                keyboardVerticalOffset={30}
-            >
-                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <View style={styles.centered}>
-                        <GlassContainer>
-                            <Text style={styles.title}>Create an Account</Text>
+        <LinearGradient colors={["#4B0082", "#B788C4"]} style={styles.gradient}>
+            <View style={styles.container}>
+                <View style={styles.formContainer}>
+                    <Text style={styles.title}>Create an Account</Text>
 
-                            {/* Fusha për emrin */}
-                            <TextInput
-                                label="Full Name"
-                                value={name}
-                                onChangeText={setName}
-                                style={styles.input}
-                                autoCapitalize="words"
-                                textContentType="name"
-                                mode="flat"
-                                theme={{
-                                    colors: {
-                                        text: '#fff',
-                                        primary: '#fff',
-                                        placeholder: '#ccc',
-                                        background: 'transparent',
-                                    },
-                                }}
-                            />
-                            {/* Fusha për email */}
-                            <TextInput
-                                label="Email"
-                                value={email}
-                                onChangeText={setEmail}
-                                style={styles.input}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                textContentType="emailAddress"
-                                mode="flat"
-                                theme={{
-                                    colors: {
-                                        text: '#fff',
-                                        primary: '#fff',
-                                        placeholder: '#ccc',
-                                        background: 'transparent',
-                                    },
-                                }}
-                            />
-                            {/* Fusha për password */}
-                            <TextInput
-                                label="Password"
-                                value={password}
-                                onChangeText={setPassword}
-                                style={styles.input}
-                                secureTextEntry
-                                textContentType="password"
-                                mode="flat"
-                                theme={{
-                                    colors: {
-                                        text: '#fff',
-                                        primary: '#fff',
-                                        placeholder: '#ccc',
-                                        background: 'transparent',
-                                    },
-                                }}
-                            />
-                            {/* Fusha për confirm password */}
-                            <TextInput
-                                label="Confirm Password"
-                                value={confirmPassword}
-                                onChangeText={setConfirmPassword}
-                                style={styles.input}
-                                secureTextEntry
-                                textContentType="password"
-                                mode="flat"
-                                theme={{
-                                    colors: {
-                                        text: '#fff',
-                                        primary: '#fff',
-                                        placeholder: '#ccc',
-                                        background: 'transparent',
-                                    },
-                                }}
-                            />
+                    {/* Name field */}
+                    <Text style={styles.label}>Full Name</Text>
+                    <TextInput
+                        value={name}
+                        onChangeText={setName}
+                        style={styles.input}
+                        placeholder="Enter your full name"
+                        placeholderTextColor="#ccc"
+                    />
 
-                            {/* Butoni për regjistrim */}
-                            <Button mode="contained" onPress={handleSignUp} style={styles.button}>
-                                Sign Up
-                            </Button>
-                        </GlassContainer>
-                    </View>
-                </TouchableWithoutFeedback>
-            </KeyboardAvoidingView>
+                    {/* Email field */}
+                    <Text style={styles.label}>Email</Text>
+                    <TextInput
+                        value={email}
+                        onChangeText={setEmail}
+                        style={styles.input}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        placeholder="Enter your email"
+                        placeholderTextColor="#ccc"
+                    />
+
+                    {/* Password field */}
+                    <Text style={styles.label}>Password</Text>
+                    <TextInput
+                        value={password}
+                        onChangeText={setPassword}
+                        style={styles.input}
+                        secureTextEntry
+                        placeholder="Enter your password"
+                        placeholderTextColor="#ccc"
+                    />
+
+                    {/* Confirm password field */}
+                    <Text style={styles.label}>Confirm Password</Text>
+                    <TextInput
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        style={styles.input}
+                        secureTextEntry
+                        placeholder="Confirm your password"
+                        placeholderTextColor="#ccc"
+                    />
+
+                    {/* Sign up button */}
+                    <Button mode="contained" onPress={handleSignUp} style={styles.button}>
+                        Sign Up
+                    </Button>
+                </View>
+            </View>
         </LinearGradient>
-    );
+    )
 }
 
-// Stilet për ekranin dhe fushat
 const styles = StyleSheet.create({
     gradient: {
         flex: 1,
     },
     container: {
         flex: 1,
-    },
-    centered: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: "center",
+        alignItems: "center",
         padding: 20,
     },
-    glassContainer: {
-        width: '100%',
+    formContainer: {
+        width: "100%",
         maxWidth: 420,
         padding: 25,
         borderRadius: 22,
-        borderColor: 'rgba(255, 255, 255, 0.3)',
+        borderColor: "rgba(255, 255, 255, 0.3)",
         borderWidth: 1.2,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        overflow: 'hidden',
+        backgroundColor: "rgba(255, 255, 255, 0.12)",
+        ...(isWeb && {
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
+        }),
     },
-    glassContainerWeb: {
-        width: '100%',
-        maxWidth: 420,
-        padding: 25,
-        borderRadius: 22,
-        borderColor: 'rgba(255, 255, 255, 0.3)',
-        borderWidth: 1.2,
-        backgroundColor: 'rgba(255, 255, 255, 0.12)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        overflow: 'hidden',
+    label: {
+        color: "#fff",
+        marginBottom: 5,
+        fontSize: 14,
     },
     input: {
-        marginBottom: 15,
-        backgroundColor: 'rgba(255, 255, 255, 0.10)',
+        backgroundColor: "rgba(255, 255, 255, 0.10)",
         borderRadius: 8,
+        padding: 12,
+        marginBottom: 15,
+        color: "#fff",
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.2)",
     },
     title: {
         fontSize: 30,
-        fontWeight: 'bold',
-        textAlign: 'center',
+        fontWeight: "bold",
+        textAlign: "center",
         marginBottom: 30,
-        color: '#fff',
+        color: "#fff",
     },
     button: {
-        marginTop: 10,
-        backgroundColor: '#6A0DAD',
-        marginBottom: 10,
+        marginTop: 20,
+        backgroundColor: "#6A0DAD",
+        marginBottom: 15,
         borderRadius: 10,
     },
-});
+})
