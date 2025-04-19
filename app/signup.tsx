@@ -1,13 +1,12 @@
-"use client"
-
-import { useState } from "react"
-import { View, StyleSheet, Alert, Platform, Text, TextInput } from "react-native"
+import { useState, useEffect } from "react"
+import { View, StyleSheet, Alert, Platform, Text, TextInput, TouchableOpacity } from "react-native"
 import { Button } from "react-native-paper"
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth"
 import { getDatabase, ref, set } from "firebase/database"
 import { router } from "expo-router"
 import { app } from "../firebaseConfig"
 import { LinearGradient } from "expo-linear-gradient"
+import { Feather } from "@expo/vector-icons"
 
 const isWeb = Platform.OS === "web"
 
@@ -104,6 +103,12 @@ export default function SignUp() {
                     <Button mode="contained" onPress={handleSignUp} style={styles.button}>
                         Sign Up
                     </Button>
+
+                    {/* Back to Login button */}
+                    <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/login")}>
+                        <Feather name="arrow-left" size={16} color="#fff" style={styles.backIcon} />
+                        <Text style={styles.backText}>Back to Login</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
         </LinearGradient>
@@ -125,12 +130,19 @@ const styles = StyleSheet.create({
         maxWidth: 420,
         padding: 25,
         borderRadius: 22,
-        borderColor: "rgba(255, 255, 255, 0.3)",
-        borderWidth: 1.2,
         backgroundColor: "rgba(255, 255, 255, 0.12)",
+        boxSizing: "border-box",
         ...(isWeb && {
             backdropFilter: "blur(16px)",
             WebkitBackdropFilter: "blur(16px)",
+            boxShadow: "0 16px 64px rgba(0, 0, 0, 0.80)",
+        }),
+        ...(!isWeb && {
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.5,
+            shadowRadius: 10,
+            elevation: 5,
         }),
     },
     label: {
@@ -159,5 +171,18 @@ const styles = StyleSheet.create({
         backgroundColor: "#6A0DAD",
         marginBottom: 15,
         borderRadius: 10,
+    },
+    backButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        marginTop: 15,
+    },
+    backIcon: {
+        marginRight: 5,
+    },
+    backText: {
+        color: "#fff",
+        fontSize: 14,
     },
 })

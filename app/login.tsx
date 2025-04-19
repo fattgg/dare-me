@@ -1,3 +1,4 @@
+//login/tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -24,6 +25,7 @@ import { useIdTokenAuthRequest } from "expo-auth-session/providers/google"
 import { router } from "expo-router"
 import { auth } from "../firebaseConfig"
 import { LinearGradient } from "expo-linear-gradient"
+import { Stack } from "expo-router"
 
 const isWeb = Platform.OS === "web"
 
@@ -136,6 +138,15 @@ export default function Login({ }: LoginProps): JSX.Element {
     </LinearGradient>
   )
 }
+export const unstable_settings = {
+  initialRouteName: "login",
+}
+
+export const screenOptions = {
+  headerShown: false,
+}
+
+
 
 // Define styles with proper type annotations
 const styles = StyleSheet.create({
@@ -153,12 +164,19 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     padding: 25,
     borderRadius: 22,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-    borderWidth: 1.2,
     backgroundColor: "rgba(255, 255, 255, 0.12)",
+    boxSizing: "border-box",
     ...(isWeb && {
       backdropFilter: "blur(16px)",
       WebkitBackdropFilter: "blur(16px)",
+      boxShadow: "0 16px 64px rgba(0, 0, 0, 0.80)",
+    }),
+    ...(!isWeb && {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 10,
+      elevation: 5,
     }),
   } as ViewStyle,
   inputContainer: {

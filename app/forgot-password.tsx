@@ -110,12 +110,19 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     padding: 25,
     borderRadius: 22,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-    borderWidth: 1.2,
     backgroundColor: "rgba(255, 255, 255, 0.12)",
+    boxSizing: "border-box",  // Sigurohuni që border dhe padding të mos ndikojnë në madhësinë totale
     ...(isWeb && {
       backdropFilter: "blur(16px)",
       WebkitBackdropFilter: "blur(16px)",
+      boxShadow: "0 16px 64px rgba(0, 0, 0, 0.80)", // Hije jashtë për web
+    }),
+    ...(!isWeb && {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 10,
+      elevation: 5,
     }),
   },
   iconContainer: {
