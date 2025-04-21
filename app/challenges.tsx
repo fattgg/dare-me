@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, FlatList, TextInput, Alert, Modal, Platform, TouchableOpacity } from 'react-native';
+import {
+    View,
+    Text,
+    Button,
+    StyleSheet,
+    FlatList,
+    TextInput,
+    Alert,
+    Modal,
+    Platform,
+    TouchableOpacity
+} from 'react-native';
 import { auth, db } from '../firebaseConfig';
 import { ref, onValue, update, remove, push } from 'firebase/database';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -11,6 +22,11 @@ export default function Challenges() {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [selectedDareForMenu, setSelectedDareForMenu] = useState(null);
+    const [editMode, setEditMode] = useState(false);
+    const [editedChallenge, setEditedChallenge] = useState('');
+    const [editedReward, setEditedReward] = useState('');
 
     useEffect(() => {
         const daresRef = ref(db, 'dares');
@@ -20,7 +36,7 @@ export default function Challenges() {
                 const formattedDares = Object.keys(data).map((key) => ({
                     id: key,
                     ...data[key],
-                    likes: data[key].likedBy ? data[key].likedBy.length : 0, // Calculate likes from likedBy array
+                    likes: data[key].likedBy ? data[key].likedBy.length : 0,
                 }));
                 setDares(formattedDares);
             } else {
@@ -31,7 +47,7 @@ export default function Challenges() {
         return () => unsubscribe();
     }, []);
 
-    const handleAcceptDare = async (dareId: string) => {
+    const handleAcceptDare = async (dareId) => {
         try {
             const user = auth.currentUser;
             if (!user) {
@@ -52,10 +68,11 @@ export default function Challenges() {
         }
     };
 
-    const handleDeleteDare = async (dareId: string) => {
+    const handleDeleteDare = async () => {
         try {
-            const dareRef = ref(db, `dares/${dareId}`);
+            const dareRef = ref(db, `dares/${selectedDareForMenu}`);
             await remove(dareRef);
+            setMenuVisible(false);
             Alert.alert('Success', 'Dare deleted successfully!');
         } catch (error) {
             console.error('Error deleting dare:', error);
@@ -63,7 +80,7 @@ export default function Challenges() {
         }
     };
 
-    const handleLikeDare = async (dareId: string, likedBy: string[] = []) => {
+    const handleLikeDare = async (dareId, likedBy = []) => {
         try {
             const user = auth.currentUser;
             if (!user) {
@@ -71,16 +88,15 @@ export default function Challenges() {
                 return;
             }
 
+            const dare = dares.find((d) => d.id === dareId);
+            if (dare && dare.userId === user.uid) return;
+
             const dareRef = ref(db, `dares/${dareId}`);
             if (likedBy.includes(user.uid)) {
                 const updatedLikedBy = likedBy.filter((uid) => uid !== user.uid);
-                await update(dareRef, {
-                    likedBy: updatedLikedBy,
-                });
+                await update(dareRef, { likedBy: updatedLikedBy });
             } else {
-                await update(dareRef, {
-                    likedBy: [...likedBy, user.uid],
-                });
+                await update(dareRef, { likedBy: [...likedBy, user.uid] });
             }
         } catch (error) {
             console.error('Error liking/unliking dare:', error);
@@ -88,7 +104,7 @@ export default function Challenges() {
         }
     };
 
-    const openComments = (dareId: string) => {
+    const openComments = (dareId) => {
         setSelectedDare(dareId);
         setModalVisible(true);
 
@@ -136,41 +152,87 @@ export default function Challenges() {
         }
     };
 
-    const renderRightActions = (dareId: string) => (
-        <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => handleDeleteDare(dareId)}
-        >
-            <Text style={styles.deleteButtonText}>Delete</Text>
-        </TouchableOpacity>
-    );
+    const startEditDare = (dareId) => {
+        const dareToEdit = dares.find((d) => d.id === dareId);
+        if (dareToEdit) {
+            setEditedChallenge(dareToEdit.challenge);
+            setEditedReward(dareToEdit.reward);
+            setEditMode(true);
+        }
+    };
 
-    const renderDare = ({ item }: { item: any }) => (
-        <Swipeable
-            renderRightActions={() => renderRightActions(item.id)} // Ensure renderRightActions is passed
-        >
-            <View style={styles.dareItem}>
-                <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
-                <Text style={styles.dareText}>Reward: {item.reward}</Text>
-                <Text style={styles.dareText}>Posted by: {item.username || 'Anonymous'}</Text>
-                <Text style={styles.dareText}>
-                    Status: {item.status === 'completed' ? 'Completed' : item.status === 'in-progress' ? 'In Progress' : 'Available'}
-                </Text>
-                {/* Likes and Comments Row */}
-                <View style={styles.row}>
-                    <View style={styles.likeContainer}>
-                        <Text style={styles.likeCount}>{item.likes} Likes</Text>
-                        <TouchableOpacity onPress={() => handleLikeDare(item.id, item.likedBy || [])}>
-                            <Text style={styles.likeButton}>👍 Like</Text>
+    const handleUpdateDare = async () => {
+        try {
+            const dareRef = ref(db, `dares/${selectedDareForMenu}`);
+            await update(dareRef, {
+                challenge: editedChallenge,
+                reward: editedReward,
+            });
+            setEditMode(false);
+            setMenuVisible(false);
+            Alert.alert('Success', 'Dare updated successfully!');
+        } catch (error) {
+            console.error('Error updating dare:', error);
+            Alert.alert('Error', 'Failed to update dare. Please try again.');
+        }
+    };
+
+    const renderDare = ({ item }) => {
+        const user = auth.currentUser;
+        const isOwner = user && item.userId === user.uid;
+
+        return (
+            <Swipeable>
+                <View style={styles.dareItem}>
+                    <View style={styles.rowTop}>
+                        {isOwner && (
+                            <TouchableOpacity onPress={() => {
+                                setSelectedDareForMenu(item.id);
+                                setMenuVisible(true);
+                            }}>
+                                <Text style={styles.optionsButton}>⋮</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                    <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
+                    <Text style={styles.dareText}>Reward: {item.reward}</Text>
+                    <Text style={styles.dareText}>Posted by: {item.username || 'Anonymous'}</Text>
+                    <Text style={styles.dareText}>
+                        Status: {item.status === 'completed' ? 'Completed' : item.status === 'in-progress' ? 'In Progress' : 'Available'}
+                    </Text>
+                    <View style={styles.row}>
+                        <View style={styles.likeContainer}>
+                            <Text style={styles.likeCount}>{item.likes} Likes</Text>
+                            {!isOwner && (
+                                <TouchableOpacity onPress={() => handleLikeDare(item.id, item.likedBy || [])}>
+                                    <Text style={styles.likeButton}>👍 Like</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        <TouchableOpacity onPress={() => openComments(item.id)}>
+                            <Text style={styles.commentButton}>💬 Comments</Text>
                         </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={() => openComments(item.id)}>
-                        <Text style={styles.commentButton}>💬 Comments</Text>
-                    </TouchableOpacity>
+                    {!item.acceptedBy && !isOwner && (
+                        <View style={styles.row}>
+                            <TouchableOpacity
+                                style={styles.acceptButton}
+                                onPress={() => handleAcceptDare(item.id)}
+                            >
+                                <Text style={styles.acceptText}>✅ Accept</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.rejectButton}
+                                onPress={() => Alert.alert('Declined', 'You declined the dare.')}
+                            >
+                                <Text style={styles.rejectText}>❌ Decline</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
-            </View>
-        </Swipeable>
-    );
+            </Swipeable>
+        );
+    };
 
     const handleLogout = async () => {
         try {
@@ -178,7 +240,7 @@ export default function Challenges() {
                 const { signOut } = require('firebase/auth');
                 await signOut(auth);
             } else {
-                await (auth as any).signOut();
+                await auth.signOut();
             }
             router.replace('/login');
         } catch (error) {
@@ -190,14 +252,8 @@ export default function Challenges() {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Available Dares</Text>
-            <Button
-                title="Post a Dare"
-                onPress={() => router.push('/create-dare')}
-            />
-            <Button
-                title="My Accepted Dares"
-                onPress={() => router.push('/my-dares')}
-            />
+            <Button title="Post a Dare" onPress={() => router.push('/create-dare')} />
+            <Button title="My Accepted Dares" onPress={() => router.push('/my-dares')} />
             <FlatList
                 data={dares}
                 keyExtractor={(item) => item.id}
@@ -232,6 +288,41 @@ export default function Challenges() {
                     <Button title="Close" onPress={() => setModalVisible(false)} />
                 </View>
             </Modal>
+
+            <Modal visible={menuVisible} transparent={true} animationType="fade">
+                <View style={styles.menuModal}>
+                    <View style={styles.menuContent}>
+                        {editMode ? (
+                            <>
+                                <TextInput
+                                    style={styles.input}
+                                    value={editedChallenge}
+                                    onChangeText={setEditedChallenge}
+                                    placeholder="Update challenge"
+                                />
+                                <TextInput
+                                    style={styles.input}
+                                    value={editedReward}
+                                    onChangeText={setEditedReward}
+                                    placeholder="Update reward"
+                                />
+                                <Button title="Save Changes" onPress={handleUpdateDare} />
+                                <Button title="Cancel Edit" onPress={() => setEditMode(false)} />
+                            </>
+                        ) : (
+                            <>
+                                <TouchableOpacity onPress={handleDeleteDare}>
+                                    <Text style={styles.deleteButtonText}>🗑️ Delete</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => startEditDare(selectedDareForMenu)}>
+                                    <Text style={styles.editButtonText}>✏️ Change</Text>
+                                </TouchableOpacity>
+                                <Button title="Close" onPress={() => setMenuVisible(false)} />
+                            </>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -261,17 +352,6 @@ const styles = StyleSheet.create({
     },
     dareText: {
         fontSize: 16,
-    },
-    deleteButton: {
-        backgroundColor: 'red',
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: 80,
-        height: '100%',
-    },
-    deleteButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
     },
     modalContainer: {
         flex: 1,
@@ -309,7 +389,12 @@ const styles = StyleSheet.create({
     row: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'center',
         marginTop: 10,
+    },
+    rowTop: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
     },
     likeContainer: {
         alignItems: 'center',
@@ -325,5 +410,54 @@ const styles = StyleSheet.create({
     commentButton: {
         fontSize: 16,
         color: 'green',
+    },
+    optionsButton: {
+        fontSize: 22,
+        color: '#555',
+        paddingHorizontal: 10,
+    },
+    menuModal: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    menuContent: {
+        width: 300,
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 10,
+        alignItems: 'center',
+    },
+    deleteButtonText: {
+        color: 'red',
+        fontWeight: 'bold',
+        fontSize: 18,
+        marginBottom: 10,
+    },
+    editButtonText: {
+        color: 'blue',
+        fontWeight: 'bold',
+        fontSize: 18,
+        marginBottom: 10,
+    },
+    acceptButton: {
+        backgroundColor: 'green',
+        padding: 10,
+        borderRadius: 5,
+        marginRight: 10,
+    },
+    rejectButton: {
+        backgroundColor: 'red',
+        padding: 10,
+        borderRadius: 5,
+    },
+    acceptText: {
+        color: 'white',
+        fontWeight: 'bold',
+    },
+    rejectText: {
+        color: 'white',
+        fontWeight: 'bold',
     },
 });
