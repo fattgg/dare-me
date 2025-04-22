@@ -15,7 +15,7 @@ import {
     Linking
 } from 'react-native';
 import { auth, db } from '../firebaseConfig';
-import { ref, onValue, update, remove, push } from 'firebase/database';
+import { ref, onValue, update, remove, push, get } from 'firebase/database';
 import { Swipeable } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -204,6 +204,21 @@ export default function Challenges() {
             setIsLoading(true);
             setUploadingDareId(dareId);
 
+            // Fetch the dare's criteria from Firebase
+            const dareRef = ref(db, `dares/${dareId}`);
+            const dareSnapshot = await get(dareRef);
+            const dareData = dareSnapshot.val();
+
+            if (!dareData || !dareData.criteria) {
+                Alert.alert('Error', 'No criteria found for this dare.');
+                setIsLoading(false);
+                setUploadingDareId(null);
+                return;
+            }
+
+            const criteria = dareData.criteria; // Dynamic criteria for this dare
+            console.log('Criteria for this dare:', criteria);
+
             // Request permission to access media library
             const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (!permissionResult.granted) {
@@ -215,7 +230,7 @@ export default function Challenges() {
 
             // Allow user to pick an image or video
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.All,
+                mediaTypes: ImagePicker.MediaTypeOptions.All, // Replace this line
                 allowsEditing: true,
                 quality: 0.8,
             });
@@ -227,74 +242,59 @@ export default function Challenges() {
             }
 
             const fileUri = result.assets[0].uri;
+            console.log('File URI:', fileUri);
+
             const fileType = fileUri.endsWith('.mp4') || fileUri.endsWith('.mov') ? 'video' : 'image';
 
             // Create form data for upload
             const formData = new FormData();
-
-            // Get file name and type
             const uriParts = fileUri.split('.');
             const fileExtension = uriParts[uriParts.length - 1];
+            const mimeType = fileType === 'video' ? 'video/mp4' : 'image/jpeg';
 
-            // Determine mime type
-            let mimeType;
-            if (fileType === 'video') {
-                mimeType = fileExtension === 'mov' ? 'video/quicktime' : 'video/mp4';
-            } else {
-                mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
-            }
-
-            // Append file to form data
             formData.append('file', {
                 uri: fileUri,
                 type: mimeType,
                 name: `evidence_${Date.now()}.${fileExtension}`,
             });
 
-            // Add upload preset for authenticated uploads
             formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
             formData.append('folder', 'dareme_private');
-
-            // IMPORTANT: Do NOT include the type parameter for unsigned uploads
-
-            console.log('Uploading to Cloudinary...');
 
             // Upload to Cloudinary
             const response = await fetch(CLOUDINARY_UPLOAD_URL, {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'multipart/form-data',
-                },
             });
 
             const responseData = await response.json();
-            console.log('Cloudinary response:', responseData);
+            console.log('Cloudinary Response:', responseData);
 
-            if (responseData.public_id) {
-                // Store the secure_url from the response
+            if (responseData.secure_url) {
                 const secureUrl = responseData.secure_url;
-                console.log('Secure URL:', secureUrl);
 
-                // Calculate expiration time (24 hours from now)
-                const expirationTime = new Date();
-                expirationTime.setHours(expirationTime.getHours() + 24);
+                // Analyze the uploaded media using Azure AI
+                const aiAnalysis = await analyzeMediaWithAzureAI(secureUrl, criteria);
 
-                // Save the evidence data to Firebase
-                const dareRef = ref(db, `dares/${dareId}`);
-                await update(dareRef, {
-                    evidence: responseData.public_id,
-                    evidenceType: fileType,
-                    evidenceUrl: secureUrl, // Store the secure URL
-                    evidenceExpires: expirationTime.toISOString(), // Store when it expires
-                    status: 'completed',
-                    completedAt: new Date().toISOString(),
-                });
+                if (aiAnalysis.isCompleted) {
+                    // Save the evidence and AI analysis result to Firebase only if the evidence is accepted
+                    await update(dareRef, {
+                        evidence: responseData.public_id,
+                        evidenceType: fileType,
+                        evidenceUrl: secureUrl,
+                        aiAnalysis: {
+                            tags: aiAnalysis.tags || [],
+                            description: aiAnalysis.description || '',
+                        },
+                        status: 'completed',
+                        completedAt: new Date().toISOString(),
+                    });
 
-                Alert.alert('Success', 'Evidence uploaded successfully! The dare has been marked as completed. The evidence will be viewable for approximately 24 hours.');
+                    Alert.alert('Success', 'Evidence uploaded successfully! The dare has been marked as completed.');
+                } else {
+                    Alert.alert('Evidence Declined', 'The uploaded evidence does not meet the criteria. Please try again.');
+                }
             } else {
-                console.error('Upload failed:', responseData);
                 Alert.alert('Error', 'Failed to upload evidence. Please try again.');
             }
 
@@ -361,6 +361,45 @@ export default function Challenges() {
             console.error('Error viewing evidence:', error);
             Alert.alert('Error', 'Failed to load evidence. Please try again.');
             setIsLoading(false);
+        }
+    };
+
+    const analyzeMediaWithAzureAI = async (imageUrl, criteria) => {
+        try {
+            const azureEndpoint = 'https://fatlindosmani.cognitiveservices.azure.com/'; // Replace with your Azure endpoint
+            const azureApiKey = 'Bw6HnOrW7hOTbQ2ug56DcDKJOdHyAO01dKR5dM16rQRmuazny3auJQQJ99BDACPV0roXJ3w3AAAFACOG0nPO'; // Replace with your Azure API key
+
+            console.log('Sending image URL to Azure:', imageUrl);
+
+            const response = await fetch(`${azureEndpoint}/vision/v3.2/analyze?visualFeatures=Tags,Description`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Ocp-Apim-Subscription-Key': azureApiKey,
+                },
+                body: JSON.stringify({ url: imageUrl }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Azure API Error:', errorData);
+                throw new Error(`Azure API Error: ${errorData.error.message}`);
+            }
+
+            const data = await response.json();
+            console.log('Azure AI Analysis Result:', data);
+
+            // Extract tags and descriptions
+            const tags = data.tags.map((tag) => tag.name);
+            const description = data.description?.captions?.[0]?.text || '';
+
+            // Check if the tags match the criteria
+            const isCompleted = criteria.some((criterion) => tags.includes(criterion));
+
+            return { isCompleted, tags, description };
+        } catch (error) {
+            console.error('Error analyzing media with Azure AI:', error);
+            return { isCompleted: false, tags: [], description: '' };
         }
     };
 
@@ -504,6 +543,14 @@ export default function Challenges() {
                                 <Text style={styles.completedText}>
                                     Completed on: {new Date(item.completedAt).toLocaleDateString()}
                                 </Text>
+                            )}
+
+                            {item.aiAnalysis && (
+                                <View style={styles.aiAnalysisContainer}>
+                                    <Text style={styles.aiAnalysisTitle}>AI Analysis:</Text>
+                                    <Text>Tags: {item.aiAnalysis.tags?.join(', ') || 'No tags available'}</Text>
+                                    <Text>Description: {item.aiAnalysis.description || 'No description available'}</Text>
+                                </View>
                             )}
                         </View>
                     )}
@@ -995,5 +1042,18 @@ const styles = StyleSheet.create({
     debugButtonText: {
         color: 'white',
         fontSize: 12,
+    },
+    aiAnalysisContainer: {
+        marginTop: 10,
+        padding: 10,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 5,
+        backgroundColor: '#f5f5f5',
+    },
+    aiAnalysisTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 5,
     },
 });

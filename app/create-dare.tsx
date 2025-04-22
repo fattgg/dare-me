@@ -7,11 +7,12 @@ import { useRouter } from 'expo-router';
 export default function CreateDare() {
     const [challenge, setChallenge] = useState('');
     const [reward, setReward] = useState('');
+    const [criteria, setCriteria] = useState(''); // New state for criteria
     const router = useRouter();
 
     const handleCreateDare = async () => {
-        if (!challenge || !reward) {
-            Alert.alert('Error', 'Please fill in both the challenge and reward.');
+        if (!challenge || !reward || !criteria) {
+            Alert.alert('Error', 'Please fill in all fields: challenge, reward, and criteria.');
             return;
         }
 
@@ -22,19 +23,25 @@ export default function CreateDare() {
                 return;
             }
 
+            // Convert criteria to an array
+            const criteriaArray = criteria.split(',').map((item) => item.trim());
+
             // Save the dare to Firebase Realtime Database
             const daresRef = ref(db, 'dares');
             await push(daresRef, {
                 challenge,
                 reward,
+                criteria: criteriaArray, // Save criteria as an array
                 userId: user.uid, // Associate the dare with the user's ID
                 username: user.email || 'Anonymous', // Use the user's email or a default name
                 createdAt: new Date().toISOString(),
+                status: 'available', // Default status
             });
 
             Alert.alert('Success', 'Dare posted successfully!');
             setChallenge('');
             setReward('');
+            setCriteria('');
             router.replace('/challenges'); // Redirect to Challenges screen
         } catch (error) {
             console.error('Error creating dare:', error);
@@ -57,6 +64,12 @@ export default function CreateDare() {
                 value={reward}
                 onChangeText={setReward}
             />
+            <TextInput
+                style={styles.input}
+                placeholder="Enter criteria (comma-separated)"
+                value={criteria}
+                onChangeText={setCriteria}
+            />
             <Button title="Post Dare" onPress={handleCreateDare} />
         </View>
     );
@@ -65,7 +78,7 @@ export default function CreateDare() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'center',
+        justifyContent: 'top',
         alignItems: 'center',
         padding: 20,
         backgroundColor: 'white',
