@@ -49,6 +49,12 @@ export default function Layout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="notifications"
+          options={{
+            title: "Notifications"
+
+          }} />
 
         {/* Sign Up screen */}
         <Stack.Screen

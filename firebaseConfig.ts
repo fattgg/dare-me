@@ -13,31 +13,25 @@ const firebaseConfig = {
     databaseURL: "https://dare-me1-default-rtdb.europe-west1.firebasedatabase.app",
 };
 
-// Initialize Firebase app only if it hasn't been initialized already
+// Initialize Firebase app
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// Initialize Firebase Realtime Database
+// Initialize Realtime Database
 const db = getDatabase(app);
 
-// Platform-specific auth initialization
+// Initialize Auth (Platform-aware)
 let auth;
 
 if (Platform.OS === 'web') {
-    // Web-specific imports and initialization
     const { getAuth, browserLocalPersistence, setPersistence } = require('firebase/auth');
     auth = getAuth(app);
-
-    // Set persistence for web
-    setPersistence(auth, browserLocalPersistence)
+    setPersistence(auth, browserLocalPersistence);
 } else {
-    // React Native specific imports and initialization
     const { initializeAuth, getReactNativePersistence } = require('firebase/auth');
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-
-    console.log('Using AsyncStorage for Firebase Auth persistence');
     auth = initializeAuth(app, {
         persistence: getReactNativePersistence(AsyncStorage),
     });
 }
 
-export { app, auth, db };
+export { app, db, auth };

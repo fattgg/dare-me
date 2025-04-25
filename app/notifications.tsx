@@ -5,8 +5,16 @@ import { ref, onValue, push } from "firebase/database";
 import { getAuth } from "firebase/auth";
 import { sendNotification } from "../notificationsHelper";
 
+type Notification = {
+    type: string;
+    dareId: string;
+    userId: string;
+    message: string;
+    timestamp: number;
+};
+
 export default function Notifications() {
-    const [notifications, setNotifications] = useState([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
     const user = getAuth().currentUser;
 
     useEffect(() => {
@@ -17,9 +25,9 @@ export default function Notifications() {
                 const data = snapshot.val() || {};
                 const all = Object.entries(data);
                 const filtered = all
-                    .filter(([_, notif]) => notif.userId === firebaseUser.uid)
-                    .sort((a, b) => b[1].timestamp - a[1].timestamp)
-                    .map(([_, notif]) => notif);
+                    .filter(([_, notif]) => (notif as any).userId === firebaseUser.uid)
+                    .sort((a, b) => (b[1] as any).timestamp - (a[1] as any).timestamp)
+                    .map(([_, notif]) => notif as any);
                 setNotifications(filtered);
             });
 

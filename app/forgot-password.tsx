@@ -95,21 +95,21 @@ export default function ForgotPassword() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
               <TextInput
-  value={email}
-  onChangeText={setEmail}
-  style={[
-    styles.input,
-    { fontFamily: email ? "Montserrat-SemiBold" : "Montserrat-SemiBoldItalic" }
-  ]}
-  keyboardType="email-address"
-  autoCapitalize="none"
-  placeholder="Enter your email"
-  placeholderTextColor="#ccc"
-  editable={!isLoading}
-/>
+                value={email}
+                onChangeText={setEmail}
+                style={[
+                  styles.input,
+                  { fontFamily: email ? "Montserrat-SemiBold" : "Montserrat-SemiBoldItalic" }
+                ]}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="Enter your email"
+                placeholderTextColor="#ccc"
+                editable={!isLoading}
+              />
 
-              
-               
+
+
             </View>
 
             <Button
@@ -143,6 +143,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
   },
+  header: {
+    height: 0,
+  },
   formContainer: {
     width: "100%",
     maxWidth: 420,
@@ -155,9 +158,9 @@ const styles = StyleSheet.create({
       boxShadow: "0 16px 64px rgba(0, 0, 0, 0.80)",
     }),
     ...(!isWeb && {
-      shadowColor: "#000", 
-      shadowOffset: { width: 0, height: 4 }, 
-      shadowOpacity: 0.5, 
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
       shadowRadius: 10,
       elevation: 5,
     }),
@@ -205,9 +208,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderRadius: 10,
   },
-  buttonLabel:{
+  buttonLabel: {
     fontFamily: "Montserrat-SemiBold",
-    fontSize:15,
+    fontSize: 15,
   },
   backButton: {
     flexDirection: "row",
