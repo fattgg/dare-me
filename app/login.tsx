@@ -1,7 +1,9 @@
-//login/tsx
-"use client"
 
-import { useState, useEffect } from "react"
+// login.tsx
+
+"use client";
+
+import { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -10,161 +12,235 @@ import {
   Platform,
   Text as RNText,
   TextInput as RNTextInput,
-  type ViewStyle,
-  type TextStyle,
-} from "react-native"
-import { Button } from "react-native-paper"
+  Image,
+} from "react-native";
+import { Button } from "react-native-paper";
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithCredential,
   type UserCredential,
   type AuthError,
-} from "firebase/auth"
-import { useIdTokenAuthRequest } from "expo-auth-session/providers/google"
-import { router } from "expo-router"
-import { auth } from "../firebaseConfig"
-import { LinearGradient } from "expo-linear-gradient"
-import { Stack } from "expo-router"
+} from "firebase/auth";
+import { useIdTokenAuthRequest } from "expo-auth-session/providers/google";
+import { router } from "expo-router";
+import { auth } from "../firebaseConfig";
+import { LinearGradient } from "expo-linear-gradient";
+import { Feather } from "@expo/vector-icons";
+import Head from "expo-router/head";
+import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
 
-const isWeb = Platform.OS === "web"
+const isWeb = Platform.OS === "web";
 
-// Define types for our component props and state
-type LoginProps = {}
+export default function Login() {
+  const [fontsLoaded] = useFonts({
+    "Montserrat-Thin": require("../assets/fonts/static/Montserrat-Thin.ttf"),
+    "Montserrat-SemiBoldItalic": require("../assets/fonts/static/Montserrat-SemiBoldItalic.ttf"),
+    "Montserrat-SemiBold": require("../assets/fonts/static/Montserrat-SemiBold.ttf"),
+    "Montserrat-ExtraLightItalic": require("../assets/fonts/static/Montserrat-ExtraLightItalic.ttf"),
+  });
 
-export default function Login({ }: LoginProps): JSX.Element {
-  const [email, setEmail] = useState<string>("")
-  const [password, setPassword] = useState<string>("")
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [hovered, setHovered] = useState<boolean>(false); // 👈 për hover efekt
+
   const [request, response, promptAsync] = useIdTokenAuthRequest({
-    clientId: "883347608544-9qfpfo449nh7niobqhu4mps0s4lthj53.apps.googleusercontent.com",
-    redirectUri: "https://auth.expo.io/@fatlindosmanii/DareMe",
-  })
+    clientId: "YOUR_GOOGLE_CLIENT_ID",
+    redirectUri: "https://auth.expo.io/@your-app/DareMe",
+  });
+
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      setIsReady(true);
+    }
+  }, [fontsLoaded]);
 
   useEffect(() => {
     if (response?.type === "success") {
-      const { id_token } = response.params
-      const credential = GoogleAuthProvider.credential(id_token)
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+
+      setLoading(true);
       signInWithCredential(auth, credential)
         .then(() => {
-          Alert.alert("Success", "Logged in with Google!")
-          router.replace("../challenges")
+          Alert.alert("Success", "Logged in with Google!");
+          router.replace("../challenges");
         })
         .catch((error: AuthError) => {
-          Alert.alert("Error", error.message)
+          Alert.alert("Error", error.message);
         })
+        .finally(() => {
+          setLoading(false);
+        });
     }
-  }, [response])
+  }, [response]);
 
   const handleLogin = async (): Promise<void> => {
-    try {
-      const userCredential: UserCredential = await signInWithEmailAndPassword(auth, email, password)
-      Alert.alert("Login Successful", `Welcome back, ${userCredential.user.email}!`)
-      router.replace("../challenges")
-    } catch (error: any) {
-      Alert.alert("Login Failed", error.message)
+    if (!email || !password) {
+      Alert.alert("Validation Error", "Please enter both email and password.");
+      return;
     }
-  }
+
+    setLoading(true);
+    try {
+      const userCredential: UserCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      Alert.alert("Login Successful", `Welcome back, ${userCredential.user.email}!`);
+      router.replace("../challenges");
+    } catch (error: any) {
+      const errorMessage = error?.message || "An unknown error occurred";
+      Alert.alert("Login Failed", errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignUp = (): void => {
-    router.push("../signup")
-  }
+    router.push("../signup");
+  };
 
   const handleForgotPassword = (): void => {
-    router.push("../forgot-password")
+    router.push("../forgot-password");
+  };
+
+  if (!isReady || loading) {
+    return (
+      <LinearGradient
+        colors={["#4B0082", "#B788C4"]}
+        style={[styles.gradient, styles.loadingContainer]}
+  ></LinearGradient>
+    );
   }
 
   return (
-    <LinearGradient colors={["#4B0082", "#B788C4"]} style={styles.gradient as ViewStyle}>
-      <View style={styles.container as ViewStyle}>
-        <View style={styles.formContainer as ViewStyle}>
-          <RNText style={styles.title as TextStyle}>Welcome!</RNText>
+    <>
+      <Head>
+        <title>DareMe | Login</title>
+        <meta name="description" content="Login to DareMe and take on new challenges!" />
+      </Head>
 
-          {/* Using React Native's built-in TextInput instead of Paper's */}
-          <View style={styles.inputContainer as ViewStyle}>
-            <RNText style={styles.label as TextStyle}>Email</RNText>
-            <RNTextInput
-              value={email}
-              onChangeText={setEmail}
-              style={styles.input as TextStyle}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholderTextColor="#ccc"
-              placeholder="Enter your email"
-              textContentType="emailAddress"
-            />
+      <LinearGradient
+        colors={["#4B0082", "#B788C4"]}
+        style={[styles.gradient, { backgroundColor: "#4B0082" }]}
+      >
+        <View style={styles.container}>
+          <View style={styles.formContainer}>
+            <View style={styles.iconContainer}>
+              <Feather name="user" size={55} color="#fff" />
+              <RNText style={styles.title}>Welcome!</RNText>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <RNText style={styles.label}>Email</RNText>
+              <RNTextInput
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="Enter your email"
+                placeholderTextColor="#ccc"
+                style={[styles.input, { fontFamily: email ? "Montserrat-SemiBold" : "Montserrat-SemiBoldItalic" }]}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <RNText style={styles.label}>Password</RNText>
+              <RNTextInput
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCorrect={false}
+                placeholder="Enter your password"
+                placeholderTextColor="#ccc"
+                style={[styles.input, { fontFamily: password ? "Montserrat-SemiBold" : "Montserrat-SemiBoldItalic" }]}
+                editable={!loading}
+              />
+            </View>
+
+            <TouchableOpacity onPress={handleForgotPassword} disabled={loading}>
+              <RNText style={styles.forgotPassword}>Forgot Password?</RNText>
+            </TouchableOpacity>
+
+            <Button
+              mode="contained"
+              onPress={handleLogin}
+              style={styles.button}
+              labelStyle={styles.buttonLabel}
+              disabled={loading}
+            >
+              Login
+            </Button>
+
+            <TouchableOpacity
+              style={styles.googleButton}
+              onPress={() => promptAsync()}
+              disabled={!request || loading}
+            >
+              <View style={styles.googleContent}>
+                <Image
+                  source={require("../assets/images/google1.png")}
+                  style={styles.googleIcon}
+                />
+                <RNText style={styles.googleButtonText}>Sign in with Google</RNText>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.createAccountLink}>
+              <RNText style={styles.createAccountText}>
+                Don’t have an account?{" "}
+                <RNText
+                  onPress={handleSignUp}
+                  onMouseEnter={() => setHovered(true)}
+                  onMouseLeave={() => setHovered(false)}
+                  disabled={loading}
+                  style={[
+                    styles.signUpText,
+                    isWeb && hovered && styles.signUpTextHovered
+                  ]}
+                >
+                  Sign up
+                </RNText>
+              </RNText>
+            </View>
           </View>
-
-          <View style={styles.inputContainer as ViewStyle}>
-            <RNText style={styles.label as TextStyle}>Password</RNText>
-            <RNTextInput
-              value={password}
-              onChangeText={setPassword}
-              style={styles.input as TextStyle}
-              secureTextEntry={true}
-              autoCorrect={false}
-              placeholderTextColor="#ccc"
-              placeholder="Enter your password"
-              textContentType="password"
-            />
-          </View>
-
-          <TouchableOpacity onPress={handleForgotPassword}>
-            <RNText style={styles.forgotPassword as TextStyle}>Forgot Password?</RNText>
-          </TouchableOpacity>
-
-          <Button mode="contained" onPress={handleLogin} style={styles.button as ViewStyle}>
-            Login
-          </Button>
-
-          <Button
-            mode="outlined"
-            onPress={handleSignUp}
-            style={styles.signUpButton as ViewStyle}
-            labelStyle={{ color: "#fff" } as TextStyle}
-          >
-            Sign Up
-          </Button>
-
-          <Button
-            mode="contained"
-            onPress={() => promptAsync()}
-            disabled={!request}
-            style={styles.googleButton as ViewStyle}
-          >
-            Sign in with Google
-          </Button>
         </View>
-      </View>
-    </LinearGradient>
-  )
+      </LinearGradient>
+    </>
+  );
 }
+
 export const unstable_settings = {
   initialRouteName: "login",
-}
+};
 
 export const screenOptions = {
   headerShown: false,
-}
+};
 
-
-
-// Define styles with proper type annotations
 const styles = StyleSheet.create({
   gradient: {
     flex: 1,
-  } as ViewStyle,
+  },
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-  } as ViewStyle,
+  },
   formContainer: {
     width: "100%",
     maxWidth: 420,
     padding: 25,
     borderRadius: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.01)",
     boxSizing: "border-box",
     ...(isWeb && {
       backdropFilter: "blur(16px)",
@@ -172,57 +248,114 @@ const styles = StyleSheet.create({
       boxShadow: "0 16px 64px rgba(0, 0, 0, 0.80)",
     }),
     ...(!isWeb && {
+      boxShadow: "0 16px 64px rgba(0, 0, 0, 0.50)",
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.5,
-      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 5,
       elevation: 5,
     }),
-  } as ViewStyle,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.07)",
+  },
   inputContainer: {
     marginBottom: 15,
-  } as ViewStyle,
+  },
   label: {
-    color: "#fff",
+    color: "white",
     marginBottom: 5,
-    fontSize: 14,
-  } as TextStyle,
+    fontSize: 16,
+    fontFamily: "Montserrat-SemiBold",
+  },
   input: {
-    backgroundColor: "rgba(255, 255, 255, 0.10)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: 8,
-    padding: 12,
+    padding: 14,
     color: "#fff",
+    opacity: 0.7,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-  } as TextStyle,
+    borderColor: "rgba(255, 255, 255, 0.6)",
+  },
   title: {
-    fontSize: 30,
+    fontFamily: "Montserrat-SemiBold",
+    fontSize: 28,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 30,
+    marginBottom: 5,
+    marginTop: 5,
     color: "#fff",
-  } as TextStyle,
+  },
   forgotPassword: {
+    fontFamily: "Montserrat-ExtraLightItalic",
     textAlign: "right",
     color: "#fff",
     marginBottom: 20,
     fontSize: 14,
-  } as TextStyle,
+  },
+  buttonLabel: {
+    color:"#fff",
+    fontFamily: "Montserrat-SemiBold",
+    fontSize: 15,
+  },
   button: {
     marginTop: 10,
     backgroundColor: "#6A0DAD",
     marginBottom: 10,
     borderRadius: 10,
-  } as ViewStyle,
-  signUpButton: {
-    marginTop: 10,
-    borderColor: "#fff",
-    marginBottom: 3,
-    borderRadius: 10,
-  } as ViewStyle,
+  },
   googleButton: {
-    marginTop: 20,
+    marginTop: 12,
     backgroundColor: "#6A0DAD",
     borderRadius: 10,
-  } as ViewStyle,
-})
+  },
+  googleContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
+  },
+  googleButtonText: {
+    fontFamily: "Montserrat-SemiBold",
+    fontSize: 14,
+    color: "#fff",
+  },
+  iconContainer: {
+    alignItems: "center",
+    marginBottom: 30,
+  },
+  createAccountLink: {
+    marginTop: 15,
+    alignSelf: "center",
+  },
+  createAccountText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Montserrat-ExtraLightItalic",
+    marginTop: 10,
+  },
+  signUpText: {
+    textDecorationLine: "none",
+    color: "#6A0DAD",
+    fontFamily: "Montserrat-SemiBold",
+    fontSize: 17,
+    marginTop: 10,
+    cursor: isWeb ? "pointer" : "default",
+  },
+  signUpTextHovered: {
+    textDecorationLine: "underline",
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "white",
+    fontSize: 18,
+    fontFamily: "Montserrat-SemiBold",
+  },
+});
