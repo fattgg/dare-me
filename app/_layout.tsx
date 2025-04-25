@@ -1,30 +1,35 @@
-import React from 'react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Enables gesture support
-import { Stack } from 'expo-router'; // Expo Router for screen navigation
-import { Image, Platform, View, Text } from 'react-native'; // Import Image and Text components to display logo and text
-import { Provider as PaperProvider } from 'react-native-paper'; // Paper UI library provider (optional here)
+import React, { useEffect, useState } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Stack } from 'expo-router';
+import { Platform, View, Image } from 'react-native';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../firebaseConfig';
 
 export default function Layout() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
   return (
-    // Root view required for gesture handling
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* Navigation stack configuration */}
       <Stack
         screenOptions={{
-          headerShown: true, // By default, show header for all screens
+          headerShown: true,
         }}
       >
-        {/* Home screen (index.tsx) */}
         <Stack.Screen
           name="index"
           options={{
             title: '',
-            headerShown: false, // Hide the header on the home screen
-            headerBackVisible: false // Hide the back button
+            headerShown: false,
+            headerBackVisible: false,
           }}
         />
-
-        {/* Login screen */}
         <Stack.Screen
           name="login"
           options={{
@@ -33,27 +38,19 @@ export default function Layout() {
             headerBackVisible: false,
             headerStyle: {
               backgroundColor: '#6A0DAD',
-              borderBottomWidth: 0,
               height: 80,
             },
             headerTintColor: '#fff',
             headerTitle: () => (
-              <View
-                style={{
-                  flex: 1,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  marginTop: Platform.OS === 'android' || Platform.OS === 'ios' ? -20 : 0,
-                  marginBottom: Platform.OS === 'android' || Platform.OS === 'ios' ? 10 : 0,
-                }}
-              >
+              <View style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginTop: Platform.OS !== 'web' ? -20 : 0,
+              }}>
                 <Image
                   source={require('../assets/images/logo-1-dareme.png')}
-                  style={{
-                    width: 185,
-                    height: 75,
-                    resizeMode: 'contain',
-                  }}
+                  style={{ width: 185, height: 75, resizeMode: 'contain' }}
                 />
               </View>
             ),
@@ -61,37 +58,20 @@ export default function Layout() {
             headerLeft: () => null,
           }}
         />
-
-
-        {/* Challenges screen */}
-        <Stack.Screen
-          name="challenges"
-          options={{
-            title: 'Challenges',
-            headerBackVisible: false, // Hide back button
-          }}
-        />
-
-        {/* Sign Up screen */}
         <Stack.Screen
           name="signup"
           options={{
-
             title: 'Sign Up',
             animation: 'fade',
             headerStyle: {
               backgroundColor: '#6A0DAD',
-              borderBottomWidth: 0,
               height: 80,
             },
-            headerLeft: () => null,
-            headerTintColor: '#fff', // White header text
-            headerTitleAlign: 'center', // 
-            headerBackVisible: false, // 
+            headerTintColor: '#fff',
+            headerTitleAlign: 'center',
+            headerBackVisible: false,
           }}
         />
-
-        {/* Forgot Password screen */}
         <Stack.Screen
           name="forgot-password"
           options={{
@@ -99,21 +79,23 @@ export default function Layout() {
             animation: 'fade',
             headerStyle: {
               backgroundColor: '#6A0DAD',
-              borderBottomWidth: 0,
               height: 80,
             },
-            headerLeft: () => null,
-            headerTintColor: '#fff', // White header text
-            headerTitleAlign: 'center', // 
-            headerBackVisible: false, // 
+            headerTintColor: '#fff',
+            headerTitleAlign: 'center',
+            headerBackVisible: false,
           }}
         />
 
-        {/* Create Dare screen */}
-        <Stack.Screen name="create-dare" options={{ title: 'Create Dare' }} />
-
-        {/* My Dares screen */}
-        <Stack.Screen name="my-dares" options={{ title: 'My Accepted Dares' }} />
+        {/* Logged-in Screens Only */}
+        {user && (
+          <>
+            <Stack.Screen name="challenges" options={{ title: 'Challenges' }} />
+            <Stack.Screen name="create-dare" options={{ title: 'Create Dare' }} />
+            <Stack.Screen name="my-dares" options={{ title: 'My Accepted Dares' }} />
+            <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+          </>
+        )}
       </Stack>
     </GestureHandlerRootView>
   );

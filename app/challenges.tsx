@@ -21,6 +21,8 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Video } from 'expo-av';
 import { WebView } from 'react-native-webview';
+import { sendNotification } from '../notificationsHelper';
+import { useRouter } from 'expo-router';
 
 // Cloudinary configuration constants
 const CLOUDINARY_CLOUD_NAME = 'dw0p7uxa6';
@@ -38,6 +40,8 @@ export default function Challenges() {
     const [editMode, setEditMode] = useState(false);
     const [editedChallenge, setEditedChallenge] = useState('');
     const [editedReward, setEditedReward] = useState('');
+    const router = useRouter();
+    const user = auth.currentUser;
 
     // Evidence-related states
     const [selectedEvidence, setSelectedEvidence] = useState(null);
@@ -110,20 +114,34 @@ export default function Challenges() {
             }
 
             const dare = dares.find((d) => d.id === dareId);
-            if (dare && dare.userId === user.uid) return;
+            if (!dare || dare.userId === user.uid) return;
 
             const dareRef = ref(db, `dares/${dareId}`);
+            let newLikedBy = [];
+
             if (likedBy.includes(user.uid)) {
-                const updatedLikedBy = likedBy.filter((uid) => uid !== user.uid);
-                await update(dareRef, { likedBy: updatedLikedBy });
+                newLikedBy = likedBy.filter((uid) => uid !== user.uid);
             } else {
-                await update(dareRef, { likedBy: [...likedBy, user.uid] });
+                newLikedBy = [...likedBy, user.uid];
+
+                // 🔔 Send notification only when liking (not unliking)
+                await sendNotification({
+                    type: 'like',
+                    dare: {
+                        id: dare.id,
+                        userId: dare.userId,
+                        challenge: dare.challenge,
+                    },
+                });
             }
+
+            await update(dareRef, { likedBy: newLikedBy });
         } catch (error) {
             console.error('Error liking/unliking dare:', error);
             Alert.alert('Error', 'Failed to like/unlike the dare. Please try again.');
         }
     };
+
 
     const openComments = (dareId) => {
         setSelectedDare(dareId);
@@ -133,11 +151,11 @@ export default function Challenges() {
         onValue(commentsRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                const formattedComments = Object.keys(data).map((key) => ({
-                    id: key,
-                    ...data[key],
+                const formatted = Object.entries(data).map(([id, comment]) => ({
+                    id,
+                    ...comment,
                 }));
-                setComments(formattedComments);
+                setComments(formatted);
             } else {
                 setComments([]);
             }
@@ -366,8 +384,8 @@ export default function Challenges() {
 
     const analyzeMediaWithAzureAI = async (imageUrl, criteria) => {
         try {
-            const azureEndpoint = 'https://fatlindosmani.cognitiveservices.azure.com/'; // Replace with your Azure endpoint
-            const azureApiKey = 'Bw6HnOrW7hOTbQ2ug56DcDKJOdHyAO01dKR5dM16rQRmuazny3auJQQJ99BDACPV0roXJ3w3AAAFACOG0nPO'; // Replace with your Azure API key
+            const azureEndpoint = 'https://fatlindosmani.cognitiveservices.azure.com/';
+            const azureApiKey = 'Bw6HnOrW7hOTbQ2ug56DcDKJOdHyAO01dKR5dM16rQRmuazny3auJQQJ99BDACPV0roXJ3w3AAAFACOG0nPO';
 
             console.log('Sending image URL to Azure:', imageUrl);
 
@@ -577,6 +595,13 @@ export default function Challenges() {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Available Dares</Text>
+            {user && (
+                <Button
+                    title="🔔 View Notifications"
+                    onPress={() => router.push('/notifications')}
+                    color="#6A0DAD"
+                />
+            )}
             <Button title="Post a Dare" onPress={() => router.push('/create-dare')} />
             <Button title="My Accepted Dares" onPress={() => router.push('/my-dares')} />
             <FlatList
