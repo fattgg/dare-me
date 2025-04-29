@@ -1,0 +1,1405 @@
+// challenges.tsx
+
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  Alert,
+  Modal,
+  Platform,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  ViewStyle,
+  TextStyle,
+} from 'react-native';
+import { auth, db } from '../firebaseConfig';
+import { ref, onValue, update, remove, push, get } from 'firebase/database';
+import { Swipeable } from 'react-native-gesture-handler';
+import { router, useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { Video } from 'expo-av';
+import { WebView } from 'react-native-webview';
+import { sendNotification } from '../notificationsHelper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
+import Head from 'expo-router/head';
+
+// Cloudinary config
+const CLOUDINARY_CLOUD_NAME = 'dw0p7uxa6';
+const CLOUDINARY_UPLOAD_PRESET = 'dareme_private';
+const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`;
+
+const isWeb = Platform.OS === 'web';
+const SwipeableWrapper = ({ children, ...props }) =>
+  isWeb ? <View>{children}</View> : <Swipeable {...props}>{children}</Swipeable>;
+
+export default function Challenges() {
+  const [fontsLoaded] = useFonts({
+    'Montserrat-SemiBold': require('../assets/fonts/static/Montserrat-SemiBold.ttf'),
+    'Montserrat-ExtraLightItalic': require('../assets/fonts/static/Montserrat-ExtraLightItalic.ttf'),
+    'Montserrat-Thin': require('../assets/fonts/static/Montserrat-Thin.ttf'),
+    'Montserrat-SemiBoldItalic': require('../assets/fonts/static/Montserrat-SemiBoldItalic.ttf'),
+  });
+
+  interface Dare {
+    id: string;
+    challenge: string;
+    reward: string;
+    status?: string;
+    acceptedBy?: string;
+    likedBy?: string[];
+    evidence?: string;
+    evidenceType?: string;
+    evidenceUrl?: string;
+    evidenceExpires?: string;
+    completedAt?: string;
+    aiAnalysis?: {
+      tags: string[];
+      description: string;
+    };
+    [key: string]: any; // Add this to allow additional properties
+  }
+
+  const [dares, setDares] = useState<Dare[]>([]);
+  const [selectedDare, setSelectedDare] = useState(null);
+  interface Comment {
+    id: string;
+    userId: string;
+    username: string;
+    text: string;
+    timestamp: string;
+  }
+
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [selectedDareForMenu, setSelectedDareForMenu] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editedChallenge, setEditedChallenge] = useState('');
+  const [editedReward, setEditedReward] = useState('');
+  const [selectedEvidence, setSelectedEvidence] = useState<{ url: string; type: string } | null>(null);
+  const [evidenceModalVisible, setEvidenceModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [uploadingDareId, setUploadingDareId] = useState(null);
+  const [isReady, setIsReady] = useState(false);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
+
+  const routerInstance = useRouter();
+  const user = auth.currentUser;
+
+  // --- Effects ---
+  useEffect(() => {
+    if (fontsLoaded) setIsReady(true);
+  }, [fontsLoaded]);
+
+  useEffect(() => {
+    const daresRef = ref(db, 'dares');
+    const unsubscribe = onValue(daresRef, (snap) => {
+      const data = snap.val();
+      if (data) {
+        const arr = Object.keys(data).map((key) => ({
+          id: key,
+          ...data[key],
+          likes: data[key].likedBy ? data[key].likedBy.length : 0,
+        }));
+        setDares(arr);
+      }
+    });
+    // onValue returns the unsubscribe function in web, but not always in native.
+    // To satisfy TypeScript, always return a cleanup function.
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isWeb) {
+      const resize = () => setIsSmallScreen(window.innerWidth < 500);
+      resize();
+      window.addEventListener('resize', resize);
+      return () => window.removeEventListener('resize', resize);
+    }
+  }, []);
+
+  // --- Handlers from File 1 & 2 ---
+
+  const handleAcceptDare = async (dareId) => {
+    try {
+      if (!user) return Alert.alert('Error', 'You must be logged in to accept a dare.');
+      const dareRef = ref(db, `dares/${dareId}`);
+      await update(dareRef, {
+        status: 'in-progress',
+        acceptedBy: user.uid,
+        acceptedAt: new Date().toISOString(),
+      });
+      Alert.alert('Success', 'Dare accepted!');
+    } catch {
+      Alert.alert('Error', 'Failed to accept dare.');
+    }
+  };
+
+  const handleDeleteDare = async () => {
+    try {
+      await remove(ref(db, `dares/${selectedDareForMenu}`));
+      setMenuVisible(false);
+      Alert.alert('Success', 'Dare deleted.');
+    } catch {
+      Alert.alert('Error', 'Delete failed.');
+    }
+  };
+
+  const handleLikeDare = async (dareId: string, likedBy: string[] = []) => {
+    try {
+      if (!user) return Alert.alert('Error', 'You must be logged in to like a dare.');
+      const dare = dares.find((d) => d.id === dareId);
+      if (!dare || dare.userId === user.uid) return;
+      const newLiked = likedBy.includes(user.uid)
+        ? likedBy.filter((u) => u !== user.uid)
+        : [...likedBy, user.uid];
+      await update(ref(db, `dares/${dareId}`), { likedBy: newLiked });
+      if (!likedBy.includes(user.uid)) {
+        await sendNotification({
+          type: 'like',
+          dare: { id: dare.id, userId: dare.userId, challenge: dare.challenge },
+        });
+      }
+    } catch {
+      Alert.alert('Error', 'Like failed.');
+    }
+  };
+
+  const openComments = (dareId) => {
+    setSelectedDare(dareId);
+    setModalVisible(true);
+    onValue(ref(db, `dares/${dareId}/comments`), (snap) => {
+      const data = snap.val();
+      setComments(data ? Object.keys(data).map((k) => ({ id: k, ...data[k] })) : []);
+    });
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return Alert.alert('Error', 'Comment cannot be empty.');
+    try {
+      if (!user) return Alert.alert('Error', 'You must be logged in to comment.');
+      await push(ref(db, `dares/${selectedDare}/comments`), {
+        userId: user.uid,
+        username: user.email || 'Anonymous',
+        text: newComment,
+        timestamp: new Date().toISOString(),
+      });
+      setNewComment('');
+      Alert.alert('Success', 'Comment added!');
+    } catch {
+      Alert.alert('Error', 'Failed to add comment.');
+    }
+  };
+
+  const startEditDare = (dareId) => {
+    const d = dares.find((x) => x.id === dareId);
+    if (!d) return;
+    setEditedChallenge(d.challenge);
+    setEditedReward(d.reward);
+    setEditMode(true);
+  };
+
+  const handleUpdateDare = async () => {
+    try {
+      await update(ref(db, `dares/${selectedDareForMenu}`), {
+        challenge: editedChallenge,
+        reward: editedReward,
+      });
+      setEditMode(false);
+      setMenuVisible(false);
+      Alert.alert('Success', 'Dare updated!');
+    } catch {
+      Alert.alert('Error', 'Update failed.');
+    }
+  };
+
+  // --- Azure AI from File 1 ---
+  const analyzeMediaWithAzureAI = async (url, criteria) => {
+    try {
+      const endpoint = 'https://fatlindosmani.cognitiveservices.azure.com/';
+      const key = 'Bw6HnOrW7hOTbQ2ug56DcDKJOdHyAO01dKR5dM16rQRmuazny3auJQQJ99BDACPV0roXJ3w3AAAFACOG0nPO';
+      const res = await fetch(`${endpoint}/vision/v3.2/analyze?visualFeatures=Tags,Description`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Ocp-Apim-Subscription-Key': key },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      const tags = json.tags.map((t) => t.name);
+      const desc = json.description?.captions?.[0]?.text || '';
+      return { isCompleted: criteria.some((c) => tags.includes(c)), tags, description: desc };
+    } catch {
+      return { isCompleted: false, tags: [], description: '' };
+    }
+  };
+
+  // --- Combined Evidence Upload ---
+  const handleUploadEvidence = async (dareId) => {
+    try {
+      setIsLoading(true);
+      setUploadingDareId(dareId);
+
+      // get criteria if any
+      const snap = await get(ref(db, `dares/${dareId}`));
+      const crit = snap.val()?.criteria;
+      if (!crit) {
+        Alert.alert('Error', 'No criteria found.');
+        setIsLoading(false);
+        return;
+      }
+
+      // pick media
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Error', 'Permission denied.');
+        setIsLoading(false);
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      if (result.canceled) {
+        setIsLoading(false);
+        return;
+      }
+
+      // prepare upload
+      const uri = result.assets[0].uri;
+      const isVid = uri.endsWith('.mp4') || uri.endsWith('.mov');
+      const ext = uri.split('.').pop();
+      const mime = isVid ? (ext === 'mov' ? 'video/quicktime' : 'video/mp4') : (ext === 'png' ? 'image/png' : 'image/jpeg');
+      const form = new FormData();
+      form.append('file', { uri, name: `evidence_${Date.now()}.${ext}`, type: mime } as any);
+      form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+      form.append('folder', 'dareme_private');
+
+      const up = await fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: form });
+      const uj = await up.json();
+      if (!uj.secure_url) throw new Error('Upload failed');
+
+      // analyze & save
+      const ai = await analyzeMediaWithAzureAI(uj.secure_url, crit);
+      const updateData = {
+        evidence: uj.public_id,
+        evidenceType: isVid ? 'video' : 'image',
+        evidenceUrl: uj.secure_url,
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      };
+      if (ai.isCompleted) updateData['aiAnalysis'] = ai;
+      else {
+        Alert.alert('Evidence Declined', 'Does not meet criteria.');
+        setIsLoading(false);
+        return;
+      }
+
+      await update(ref(db, `dares/${dareId}`), updateData);
+      Alert.alert('Success', 'Evidence accepted!');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Upload error');
+    } finally {
+      setIsLoading(false);
+      setUploadingDareId(null);
+    }
+  };
+
+  const isUrlExpired = (item) => {
+    if (!item.evidenceExpires) return false;
+    return new Date() > new Date(item.evidenceExpires);
+  };
+
+  const viewEvidence = (item) => {
+    if (isUrlExpired(item)) {
+      Alert.alert("Expired", "This evidence has expired and cannot be viewed.");
+      return;
+    }
+
+    if (!item.evidenceUrl) {
+      Alert.alert("Error", "No evidence URL found for this item.");
+      return;
+    }
+
+    setSelectedEvidence({
+      url: item.evidenceUrl,
+      type: item.evidenceType || "image",
+    });
+    setEvidenceModalVisible(true);
+  };
+
+  // --- Render each dare (styled like file2) ---
+  const renderDare = ({ item }) => {
+    const isOwner = user?.uid === item.userId;
+    const isAccepted = item.acceptedBy === user?.uid;
+    const isUploading = uploadingDareId === item.id;
+    const expired = isUrlExpired(item);
+
+    return (
+      <SwipeableWrapper>
+        <View style={styles.dareItem}>
+          {/* Top Section: Challenge Details */}
+          <View style={styles.rowTop}>
+            {isOwner && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedDareForMenu(item.id);
+                  setMenuVisible(true);
+                }}
+              >
+                <Feather name="more-vertical" size={22} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
+          <Text style={styles.dareText}>Reward: {item.reward}</Text>
+          <Text style={styles.dareText}>Posted by: {item.username || "Anonymous"}</Text>
+          <Text style={styles.statusText}>
+            Status:{" "}
+            {item.status === "completed"
+              ? "Completed"
+              : item.status === "in-progress"
+                ? "In Progress"
+                : "Available"}
+          </Text>
+
+          {/* Buttons Section */}
+          <View
+            style={[
+              styles.row,
+              isSmallScreen && { flexDirection: "column", alignItems: "flex-start" },
+            ]}
+          >
+            {/* Like and Comments Buttons */}
+            <View
+              style={[
+                styles.likeContainer,
+                isSmallScreen && { width: "100%", marginBottom: 5 },
+              ]}
+            >
+              <Text style={styles.likeCount}>{item.likes} Likes</Text>
+              {!isOwner && (
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleLikeDare(item.id, item.likedBy || [])}
+                >
+                  <Feather
+                    name="thumbs-up"
+                    size={16}
+                    color="#fff"
+                    style={styles.actionIcon}
+                  />
+                  <Text style={styles.actionText}>Like</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => openComments(item.id)}
+            >
+              <Feather
+                name="message-circle"
+                size={16}
+                color="#fff"
+                style={styles.actionIcon}
+              />
+              <Text style={styles.actionText}>Comments</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Accept/Decline Buttons */}
+          {!item.acceptedBy && !isOwner && (
+            <View
+              style={[
+                styles.row,
+                isSmallScreen && { flexDirection: "column", alignItems: "flex-start" },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.acceptButton}
+                onPress={() => handleAcceptDare(item.id)}
+              >
+                <Feather
+                  name="check"
+                  size={16}
+                  color="#fff"
+                  style={styles.actionIcon}
+                />
+                <Text style={styles.acceptText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rejectButton}
+                onPress={() =>
+                  Alert.alert("Declined", "You declined the dare.")
+                }
+              >
+                <Feather
+                  name="x"
+                  size={16}
+                  color="#fff"
+                  style={styles.actionIcon}
+                />
+                <Text style={styles.rejectText}>Decline</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Upload Evidence Button */}
+          {item.status === "in-progress" &&
+            isAccepted &&
+            (isUploading ? (
+              <View style={styles.uploadingContainer}>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={styles.uploadingText}>Uploading evidence...</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.uploadButton}
+                onPress={() => handleUploadEvidence(item.id)}
+                disabled={isLoading}
+              >
+                <Feather
+                  name="upload"
+                  size={16}
+                  color="#fff"
+                  style={styles.actionIcon}
+                />
+                <Text style={styles.uploadButtonText}>Upload Evidence</Text>
+              </TouchableOpacity>
+            ))}
+
+          {/* Evidence Section */}
+          {/* Display Evidence */}
+          {item.evidence && (
+            <View style={styles.evidenceContainer}>
+              <Text style={styles.evidenceTitle}>Evidence:</Text>
+
+              {expired ? (
+                <View style={styles.expiredContainer}>
+                  <Text style={styles.expiredText}>Evidence has expired</Text>
+                </View>
+              ) : item.evidenceType === 'video' ? (
+                <View>
+                  <Text style={styles.evidenceText}>Video evidence uploaded</Text>
+                  <TouchableOpacity
+                    style={styles.viewButton}
+                    onPress={() => viewEvidence(item)}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.viewButtonText}>
+                      {isLoading ? 'Loading...' : 'View Video'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => viewEvidence(item)}
+                  disabled={isLoading}
+                >
+                  {item.evidenceUrl ? (
+                    <>
+                      <Image
+                        source={{ uri: item.evidenceUrl }}
+                        style={styles.evidenceImage}
+                        resizeMode="cover"
+                      />
+                      <Text style={styles.viewFullText}>Tap to view full image</Text>
+                    </>
+                  ) : (
+                    <View style={styles.evidenceImagePlaceholder}>
+                      <Text style={styles.viewFullText}>
+                        {isLoading ? 'Loading...' : 'Tap to view evidence'}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {item.evidenceExpires && !expired && (
+                <Text style={styles.expiresText}>
+                  Evidence available until: {new Date(item.evidenceExpires).toLocaleString()}
+                </Text>
+              )}
+
+              {item.completedAt && (
+                <Text style={styles.completedText}>
+                  Completed on: {new Date(item.completedAt).toLocaleDateString()}
+                </Text>
+              )}
+
+              {item.aiAnalysis && (
+                <View style={styles.aiAnalysisContainer}>
+                  <Text style={styles.aiAnalysisTitle}>AI Analysis:</Text>
+                  <Text>Tags: {item.aiAnalysis.tags?.join(', ') || 'No tags available'}</Text>
+                  <Text>Description: {item.aiAnalysis.description || 'No description available'}</Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      </SwipeableWrapper>
+    );
+  };
+
+  const handleLogout = async () => {
+    try {
+      if (isWeb) {
+        const { signOut } = require('firebase/auth');
+        await signOut(auth);
+      } else {
+        await auth.signOut();
+      }
+      routerInstance.replace('/login');
+    } catch {
+      Alert.alert('Error', 'Logout failed.');
+    }
+  };
+
+  // --- Main render ---
+  if (!isReady || isLoading) {
+    return (
+      <LinearGradient colors={['#4B0082', '#B788C4']} style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#fff" />
+      </LinearGradient>
+    );
+  }
+
+  return (
+    <>
+      <Head>
+        <title>DareMe | Challenges</title>
+        <meta name="description"
+          content="Browse and accept dares on DareMe"
+        />
+      </Head>
+      <LinearGradient
+        colors={['#4B0082', '#B788C4']}
+        style={styles.gradient}
+      >
+        <View style={styles.container}>
+          <View style={styles.headerContainer}>
+            <Feather
+              name="award"
+              size={40}
+              color="#fff"
+            />
+            <Text style={styles.title}>Available Dares</Text>
+          </View>
+          <View style={[styles.buttonContainer, isSmallScreen && { flexDirection: 'column' }]}>
+            <TouchableOpacity style={[styles.mainButton, isSmallScreen && { width: '100%' }]} onPress={() => routerInstance.push('/create-dare')}>
+              <Feather
+                name="plus-circle"
+                size={18}
+                color="#fff"
+                styles={styles.buttonIcon}
+              />
+              <Text style={styles.buttonText}>Post a Dare</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.mainButton, isSmallScreen && { width: '100%' }]} onPress={() => routerInstance.push('/my-dares')}>
+              <Feather
+                name="list"
+                size={18}
+                color="#fff"
+                styles={styles.buttonIcon}
+              />
+              <Text style={styles.buttonText}>My Accepted Dares</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.mainButton}
+              onPress={() => routerInstance.push("/notifications")}
+            >
+              <Feather
+                name="bell"
+                size={18}
+                color="#fff"
+                styles={styles.buttonIcon}
+              />
+              <Text style={styles.buttonText}>Notifications</Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList data={dares} keyExtractor={(i) => i.id} renderItem={renderDare} contentContainerStyle={styles.list} />
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Feather
+              name="log-out"
+              size={18}
+              color="#fff"
+              styles={styles.buttonIcon}
+            />
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+
+          {/* Comments Modal */}
+          <Modal visible={modalVisible} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContainer}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Comments</Text>
+                  <TouchableOpacity onPress={() => setModalVisible(false)}>
+                    <Feather name="x"
+                      size={24}
+                      color="#fff"
+                    />
+                  </TouchableOpacity>
+                </View>
+                <FlatList data={comments} keyExtractor={(c) => c.id} renderItem={({ item }) =>
+                  <View style={styles.commentItem}>
+                    <Text style={styles.commentAuthor}>{item.username}:
+                    </Text>
+                    <Text style={styles.commentText}>{item.text}
+                    </Text>
+                  </View>
+                }
+                  contentContainerStyle={styles.commentsList} />
+                <View style={styles.commentInputContainer}>
+                  <TextInput style={styles.input}
+                    placeholder="Add a comment..."
+                    placeholderTextColor="#ccc"
+                    value={newComment}
+                    onChangeText={setNewComment}
+                  />
+                  <TouchableOpacity style={styles.addCommentButton} onPress={handleAddComment}>
+                    <Feather name="send"
+                      size={20}
+                      color="#fff"
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Menu Modal */}
+          <Modal visible={menuVisible} transparent animationType="fade">
+            <View style={styles.menuModal}>
+              <View style={styles.menuContent}>
+                {editMode ? (
+                  <>
+                    <Text style={styles.menuTitle}>Edit Dare</Text>
+                    <TextInput style={styles.menuInput}
+                      value={editedChallenge}
+                      onChangeText={setEditedChallenge}
+                      placeholder="Challenge"
+                      placeholderTextColor="#ccc"
+                    />
+                    <TextInput style={styles.menuInput}
+                      value={editedReward}
+                      onChangeText={setEditedReward}
+                      placeholder="Reward"
+                      placeholderTextColor="#ccc"
+                    />
+                    <TouchableOpacity style={styles.menuButton}
+                      onPress={handleUpdateDare}>
+                      <Text style={styles.menuButtonText}>Save
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.menuButton, styles.cancelButton]}
+                      onPress={() => setEditMode(false)}>
+                      <Text style={styles.menuButtonText}>Cancel
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.menuTitle}>Options</Text>
+                    <TouchableOpacity style={styles.menuOption}
+                      onPress={() => startEditDare(selectedDareForMenu)}>
+                      <Feather name="edit"
+                        size={20}
+                        color="#fff"
+                        styles={styles.menuIcon}
+                      />
+                      <Text style={styles.menuOptionText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuOption}
+                      onPress={handleDeleteDare}>
+                      <Feather name="trash-2"
+                        size={20}
+                        color="#ff6b6b"
+                        styles={styles.menuIcon} />
+                      <Text style={[styles.menuOptionText, styles.deleteText]}>Delete</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.menuButton, styles.closeButton]}
+                      onPress={() => setMenuVisible(false)}>
+                      <Text style={styles.menuButtonText}>Close</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+          </Modal>
+
+          {/* Evidence Modal */}
+          <Modal
+            visible={evidenceModalVisible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setEvidenceModalVisible(false)} // Ensure the modal can be dismissed
+          >
+            <View style={styles.evidenceModalContainer}>
+              {/* Close Button */}
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setEvidenceModalVisible(false)}
+              >
+                <Feather name="x" size={24} color="#fff" />
+              </TouchableOpacity>
+
+              {/* Display Evidence */}
+              {selectedEvidence?.type === "video" ? (
+                <View style={styles.videoContainer}>
+                  <ActivityIndicator size="large" color="#fff" />
+                  <Video
+                    source={{ uri: selectedEvidence.url }}
+                    shouldPlay
+                    useNativeControls
+                    style={styles.fullScreenVideo}
+                  />
+                </View>
+              ) : (
+                selectedEvidence && (
+                  <WebView
+                    source={{
+                      html: `
+                        <html>
+                          <head>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <style>
+                              body {
+                                margin: 0;
+                                padding: 0;
+                                background: black;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                height: 100vh;
+                              }
+                              img {
+                                max-width: 100%;
+                                max-height: 100%;
+                                object-fit: contain;
+                              }
+                            </style>
+                          </head>
+                          <body>
+                            <img src="${selectedEvidence.url}" />
+                          </body>
+                        </html>
+                      `,
+                    }}
+                    style={styles.fullScreenImage}
+                    onError={(e) => {
+                      console.error("WebView error:", e);
+                      Alert.alert(
+                        "Error",
+                        "Failed to load the image. It may have expired or is unavailable."
+                      );
+                      setEvidenceModalVisible(false);
+                    }}
+                  />
+                )
+              )}
+            </View>
+          </Modal>
+        </View>
+      </LinearGradient>
+    </>
+  );
+}
+
+//--- Stylesheet ---
+const styles = StyleSheet.create<{
+  gradient: ViewStyle;
+  loadingContainer: ViewStyle;
+  container: ViewStyle;
+  headerContainer: ViewStyle;
+  title: TextStyle;
+  buttonContainer: ViewStyle;
+  mainButton: ViewStyle;
+  buttonText: TextStyle;
+  buttonIcon: ViewStyle;
+  list: ViewStyle;
+  dareItem: ViewStyle;
+  rowTop: ViewStyle;
+  dareText: TextStyle;
+  statusText: TextStyle;
+  row: ViewStyle;
+  likeContainer: ViewStyle;
+  likeCount: TextStyle;
+  actionButton: ViewStyle;
+  actionIcon: ViewStyle;
+  actionText: TextStyle;
+  acceptButton: ViewStyle;
+  acceptText: TextStyle;
+  rejectButton: ViewStyle;
+  rejectText: TextStyle;
+  uploadButton: ViewStyle;
+  uploadButtonText: TextStyle;
+  uploadingContainer: ViewStyle;
+  uploadingText: TextStyle;
+  evidenceContainer: ViewStyle;
+  evidenceTitle: TextStyle;
+  evidenceText: TextStyle;
+  evidenceImage: ViewStyle;
+  evidenceImagePlaceholder: ViewStyle;
+  viewFullText: TextStyle;
+  viewButton: ViewStyle;
+  viewButtonText: TextStyle;
+  completedText: TextStyle;
+  expiresText: TextStyle;
+  expiredContainer: ViewStyle;
+  expiredText: TextStyle;
+  aiAnalysisContainer: ViewStyle;
+  aiAnalysisTitle: TextStyle;
+  logoutButton: ViewStyle;
+  logoutText: TextStyle;
+  modalOverlay: ViewStyle;
+  modalContainer: ViewStyle;
+  modalHeader: ViewStyle;
+  modalTitle: TextStyle;
+  commentsList: ViewStyle;
+  commentItem: ViewStyle;
+  commentAuthor: TextStyle;
+  commentText: TextStyle;
+  commentInputContainer: ViewStyle;
+  input: TextStyle;
+  addCommentButton: ViewStyle;
+  menuModal: ViewStyle;
+  menuContent: ViewStyle;
+  menuTitle: TextStyle;
+  menuInput: TextStyle;
+  menuButton: ViewStyle;
+  menuButtonText: TextStyle;
+  cancelButton: ViewStyle;
+  closeButton: ViewStyle;
+  menuOption: ViewStyle;
+  menuIcon: ViewStyle;
+  menuOptionText: TextStyle;
+  deleteText: TextStyle;
+  evidenceModalContainer: ViewStyle;
+  fullScreenImage: ViewStyle;
+  videoContainer: ViewStyle;
+  fullScreenVideo: ViewStyle;
+}>({
+  gradient: {
+    flex: 1
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+
+  container: {
+    flex: 1,
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20
+  },
+
+  headerContainer: {
+    alignItems: 'center',
+    marginBottom: 20
+  },
+
+  title: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginTop: 50
+  },
+
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 10
+  },
+
+  mainButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6A0DAD',
+    padding: 12,
+    borderRadius: 10
+  },
+
+  buttonText: {
+    color: '#fff',
+    fontSize: 14,
+    marginLeft: 8,
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  buttonIcon: {
+    marginRight: 8
+  },
+
+  list: {
+    paddingBottom: 20
+  },
+
+  dareItem: {
+    padding: 15,
+    marginBottom: 15,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+
+  rowTop: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 10
+  },
+
+  dareText: {
+    color: '#fff',
+    fontSize: 16,
+    marginBottom: 5,
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  statusText: {
+    color: '#fff',
+    fontSize: 16,
+    marginBottom: 10,
+    fontFamily: 'Montserrat-SemiBold',
+    marginTop: 5
+  },
+
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 10
+  },
+
+  likeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 0
+  },
+
+  likeCount: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    marginRight: 10,
+    fontFamily: 'Montserrat-ExtraLightItalic'
+  },
+
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20
+  },
+
+  actionIcon: {
+    marginRight: 5
+  },
+
+  actionText: {
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14
+  },
+
+  acceptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8
+  },
+
+  acceptText: {
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14
+  },
+
+  rejectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff6b6b',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8
+  },
+
+  rejectText: {
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14
+  },
+
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4CAF50',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginTop: 15
+  },
+
+  uploadButtonText: {
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 15
+  },
+
+  uploadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginTop: 15
+  },
+
+  uploadingText: {
+    marginLeft: 10,
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  evidenceContainer: {
+    marginTop: 15,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)'
+  },
+
+  evidenceTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  evidenceText: {
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 8,
+    fontFamily: 'Montserrat-ExtraLightItalic'
+  },
+
+  evidenceImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginTop: 5
+  },
+
+  evidenceImagePlaceholder: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 5
+  },
+
+  viewFullText: {
+    textAlign: 'center',
+    color: '#B788C4',
+    marginTop: 8,
+    fontFamily: 'Montserrat-SemiBoldItalic'
+  },
+
+  viewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2196F3',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginTop: 8
+  },
+
+  viewButtonText: {
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14
+  },
+
+  completedText: {
+    marginTop: 8,
+    fontStyle: 'italic',
+    color: '#4CAF50',
+    fontFamily: 'Montserrat-ExtraLightItalic'
+  },
+
+  expiresText: {
+    marginTop: 8,
+    fontStyle: 'italic',
+    color: '#FF9800',
+    fontSize: 12,
+    fontFamily: 'Montserrat-ExtraLightItalic'
+  },
+
+  expiredContainer: {
+    padding: 15,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+
+  expiredText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontStyle: 'italic',
+    fontFamily: 'Montserrat-ExtraLightItalic'
+  },
+
+  aiAnalysisContainer: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.07)'
+  },
+
+  aiAnalysisTitle: {
+    fontWeight: 'bold',
+    marginBottom: 5,
+    color: '#fff'
+  },
+
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6A0DAD',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)'
+  },
+
+  logoutText: {
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 15,
+    marginLeft: 8
+  },
+
+  // Modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+
+  modalContainer: {
+    width: '90%',
+    maxWidth: 500,
+    backgroundColor: '#4B0082',
+    borderRadius: 15,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    ...(isWeb ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {})
+  },
+
+
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)'
+  },
+
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  commentsList: {
+    flexGrow: 1
+  },
+
+  commentItem: {
+    padding: 12,
+    marginBottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8
+  },
+
+  commentAuthor: {
+    fontWeight: 'bold',
+    color: '#B788C4',
+    marginBottom: 5,
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  commentText: {
+    color: '#fff',
+    fontFamily: 'Montserrat-ExtraLightItalic'
+  },
+
+  commentInputContainer: {
+    flexDirection: 'row',
+    marginTop: 15
+  },
+
+  input: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    padding: 12,
+    color: '#fff',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  addCommentButton: {
+    backgroundColor: '#6A0DAD',
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+
+  menuModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+
+  menuContent: {
+    width: '80%',
+    maxWidth: 350,
+    backgroundColor: '#4B0082',
+    borderRadius: 15,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    maxHeight: isWeb ? '80%' : '90%', overflow: isWeb ? 'scroll' : 'hidden'
+  },
+
+  menuTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 15,
+    textAlign: 'center',
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  menuInput: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    padding: 12,
+    color: '#fff',
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  menuButton: {
+    backgroundColor: '#6A0DAD',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10
+  },
+
+  menuButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  cancelButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)'
+  },
+
+  closeButton: {
+    marginTop: 5
+  },
+
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12
+  },
+
+  menuIcon: {
+    marginRight: 8
+  },
+
+  menuOptionText: {
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold'
+  },
+
+  deleteText: {
+    color: '#ff6b6b'
+  },
+
+  evidenceModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+
+  fullScreenImage: {
+    width: '100%',
+    height: '100%'
+  },
+
+  videoContainer: {
+    width: '90%',
+    height: '80%'
+  },
+
+  fullScreenVideo: {
+    width: '100%',
+    height: '100%'
+  },
+});
