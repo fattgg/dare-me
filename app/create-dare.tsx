@@ -52,8 +52,8 @@ export default function CreateDare() {
             await push(daresRef, {
                 challenge,
                 reward,
-                criteria: criteriaArray, // Save criteria as an array
-                userId: user.uid,
+                criteria: criteriaArray,
+                userId: user.uid, // <-- this must be present!
                 username: user.email || 'Anonymous',
                 createdAt: new Date().toISOString(),
             });
@@ -115,7 +115,7 @@ export default function CreateDare() {
                         <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: 8 }} />
                     </View>
                 </TouchableOpacity>
-                
+
                 {/* Back to Challenges Button */}
                 <TouchableOpacity onPress={() => router.push('/challenges')} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={18} color="#fff" style={styles.backIcon} />

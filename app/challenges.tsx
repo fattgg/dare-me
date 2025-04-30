@@ -15,6 +15,7 @@ import {
   Image,
   ViewStyle,
   TextStyle,
+  Button,
 } from 'react-native';
 import { auth, db } from '../firebaseConfig';
 import { ref, onValue, update, remove, push, get } from 'firebase/database';
@@ -111,8 +112,7 @@ export default function Challenges() {
         setDares(arr);
       }
     });
-    // onValue returns the unsubscribe function in web, but not always in native.
-    // To satisfy TypeScript, always return a cleanup function.
+
     return () => {
       if (typeof unsubscribe === 'function') {
         unsubscribe();
@@ -128,8 +128,6 @@ export default function Challenges() {
       return () => window.removeEventListener('resize', resize);
     }
   }, []);
-
-  // --- Handlers from File 1 & 2 ---
 
   const handleAcceptDare = async (dareId) => {
     try {
@@ -307,6 +305,20 @@ export default function Challenges() {
       }
 
       await update(ref(db, `dares/${dareId}`), updateData);
+
+      // Notify dare owner
+      const dareSnap = await get(ref(db, `dares/${dareId}`));
+      const dare = dareSnap.val();
+      if (dare && dare.userId) {
+        await push(ref(db, "notifications"), {
+          type: "evidence",
+          dareId,
+          userId: dare.userId,
+          message: `✅ Your dare: "${dare.challenge}" has been completed!`,
+          timestamp: Date.now(),
+        });
+      }
+
       Alert.alert('Success', 'Evidence accepted!');
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Upload error');
@@ -337,6 +349,18 @@ export default function Challenges() {
       type: item.evidenceType || "image",
     });
     setEvidenceModalVisible(true);
+  };
+
+  const handleMarkAsCompleted = async (dareId) => {
+    try {
+      await update(ref(db, `dares/${dareId}`), {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
+      Alert.alert('Success', 'Dare marked as completed!');
+    } catch {
+      Alert.alert('Error', 'Failed to mark dare as completed.');
+    }
   };
 
   // --- Render each dare (styled like file2) ---

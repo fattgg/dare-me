@@ -18,36 +18,19 @@ export default function Notifications() {
     const user = getAuth().currentUser;
 
     useEffect(() => {
-        const unsubscribeAuth = getAuth().onAuthStateChanged((firebaseUser) => {
-            if (!firebaseUser) return;
-            const notificationsRef = ref(db, "/notifications");
-            const unsubscribeDb = onValue(notificationsRef, (snapshot) => {
-                const data = snapshot.val() || {};
-                const all = Object.entries(data);
-                const filtered = all
-                    .filter(([_, notif]) => (notif as any).userId === firebaseUser.uid)
-                    .sort((a, b) => (b[1] as any).timestamp - (a[1] as any).timestamp)
-                    .map(([_, notif]) => notif as any);
-                setNotifications(filtered);
-            });
+        if (!user) return;
 
-            // Cleanup DB listener when auth changes
-            return () => unsubscribeDb();
+        const notificationsRef = ref(db, "/notifications");
+        const unsubscribe = onValue(notificationsRef, (snapshot) => {
+            const data = snapshot.val() || {};
+            const userNotifications = Object.values(data).filter(
+                (notif: any) => notif.userId === user.uid
+            );
+            setNotifications(userNotifications.reverse());
         });
 
-        return () => unsubscribeAuth();
-    }, []);
-
-
-    const sendNotification = async ({ type, dare }) => {
-        await push(ref(db, "/notifications"), {
-            type, // "like", "comment", "accept"
-            dareId: dare.id,
-            userId: dare.userId,
-            message: `Someone ${type}d your dare: "${dare.challenge}"`,
-            timestamp: Date.now(),
-        });
-    };
+        return () => unsubscribe();
+    }, [user]);
 
     return (
         <View style={styles.container}>
@@ -58,7 +41,7 @@ export default function Notifications() {
                 renderItem={({ item }) => (
                     <View style={styles.item}>
                         <Text style={styles.message}>
-                            {item.type === "like" ? "❤️" : item.type === "comment" ? "💬" : "✅"} {item.message}
+                            {item.type === "complete" ? "✅" : ""} {item.message}
                         </Text>
                         <Text style={styles.time}>
                             {new Date(item.timestamp).toLocaleString()}

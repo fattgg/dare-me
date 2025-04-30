@@ -1,11 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, Button } from 'react-native';
 import { auth, db } from '../firebaseConfig';
-import { ref, onValue, update } from 'firebase/database'; // For fetching and updating data
+import { ref, onValue, update, push } from 'firebase/database'; // For fetching and updating data
 import { useRouter } from 'expo-router';
 
+type Dare = {
+    id: string;
+    challenge: string;
+    reward: string;
+    status: string;
+    acceptedBy: string;
+    userId: string;
+    evidence?: string;
+};
+
 export default function MyDares() {
-    const [myDares, setMyDares] = useState([]);
+    const [myDares, setMyDares] = useState<Dare[]>([]);
     const router = useRouter();
 
     useEffect(() => {
@@ -39,30 +49,65 @@ export default function MyDares() {
         fetchMyDares();
     }, []);
 
-    const handleMarkAsCompleted = async (dareId: string) => {
+    const handleMarkAsCompleted = async (dare: Dare) => {
         try {
-            const dareRef = ref(db, `dares/${dareId}`);
-            await update(dareRef, {
-                status: 'completed', // Update the status to "completed"
+            // 1. Mark the dare as completed
+            await update(ref(db, `dares/${dare.id}`), {
+                status: "completed",
+                completedAt: new Date().toISOString(),
             });
 
-            Alert.alert('Success', 'You have marked the dare as completed!');
+            // 2. Push a notification for the dare owner
+            await push(ref(db, "notifications"), {
+                type: "complete",
+                dareId: dare.id,
+                userId: dare.userId, // The OWNER of the dare!
+                message: `Your dare "${dare.challenge}" has been completed!`,
+                timestamp: Date.now(),
+            });
+
+            Alert.alert("Success", "Dare marked as completed and owner notified!");
         } catch (error) {
-            console.error('Error marking dare as completed:', error);
-            Alert.alert('Error', 'Failed to mark the dare as completed. Please try again.');
+            Alert.alert("Error", "Failed to mark as completed.");
         }
     };
 
-    const renderDare = ({ item }: { item: any }) => (
-        <View style={styles.dareItem}>
-            <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
-            <Text style={styles.dareText}>Reward: {item.reward}</Text>
-            <Text style={styles.dareText}>Status: {item.status}</Text>
-            {item.status !== 'completed' && (
-                <Button title="Mark as Completed" onPress={() => handleMarkAsCompleted(item.id)} />
-            )}
-        </View>
-    );
+    const handleUploadEvidence = async (dareId: string) => {
+        try {
+            const dareRef = ref(db, `dares/${dareId}`);
+            await update(dareRef, {
+                evidence: "uploaded", // Simulate evidence upload
+            });
+
+            Alert.alert("Success", "Evidence uploaded successfully!");
+        } catch (error) {
+            console.error("Error uploading evidence:", error);
+            Alert.alert("Error", "Failed to upload evidence. Please try again.");
+        }
+    };
+
+    const renderDare = ({ item }: { item: Dare }) => {
+        const user = auth.currentUser;
+        return (
+            <View style={styles.dareItem}>
+                <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
+                <Text style={styles.dareText}>Reward: {item.reward}</Text>
+                <Text style={styles.dareText}>Status: {item.status}</Text>
+                {item.status === 'in-progress' && !item.evidence && (
+                    <Button
+                        title="Upload Evidence"
+                        onPress={() => handleUploadEvidence(item.id)}
+                    />
+                )}
+                {item.status === "in-progress" && user && item.acceptedBy === user.uid && (
+                    <Button
+                        title="Mark as Completed"
+                        onPress={() => handleMarkAsCompleted(item)}
+                    />
+                )}
+            </View>
+        );
+    };
 
     return (
         <View style={styles.container}>
