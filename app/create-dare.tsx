@@ -50,26 +50,12 @@ export default function CreateDare() {
     setErrors(newErrors);
 
     if (newErrors.challenge || newErrors.reward || newErrors.criteria) {
-      if (Platform.OS === 'web') {
-        window.alert('Please fill in all fields properly.');
-      } else {
-        import('react-native').then(({ Alert }) =>
-          Alert.alert('Error', 'Please fill in all fields properly.')
-        );
-      }
       return;
     }
 
     try {
       const user = auth.currentUser;
       if (!user) {
-        if (Platform.OS === 'web') {
-          window.alert('You must be logged in to create a dare.');
-        } else {
-          import('react-native').then(({ Alert }) =>
-            Alert.alert('Error', 'You must be logged in to create a dare.')
-          );
-        }
         return;
       }
 
@@ -90,16 +76,9 @@ export default function CreateDare() {
       setCriteria('');
       setErrors({ challenge: false, reward: false, criteria: false });
 
-      setSuccessModalVisible(true); // show modal
+      setSuccessModalVisible(true);
     } catch (error) {
       console.error('Error creating dare:', error);
-      if (Platform.OS === 'web') {
-        window.alert('Failed to post dare. Please try again.');
-      } else {
-        import('react-native').then(({ Alert }) =>
-          Alert.alert('Error', 'Failed to post dare. Please try again.')
-        );
-      }
     }
   };
 
@@ -193,11 +172,7 @@ export default function CreateDare() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   card: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderColor: 'rgba(255, 255, 255, 0.2)',
@@ -209,13 +184,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 20, textAlign: 'center' },
   input: {
     width: '100%',
     padding: 12,
@@ -242,29 +211,16 @@ const styles = StyleSheet.create({
     marginTop: 10,
     alignItems: 'center',
   },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonLabel: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  buttonContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  buttonLabel: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 15,
   },
-  backIcon: {
-    marginRight: 5,
-  },
-  backText: {
-    color: "#fff",
-    fontSize: 14,
-  },
+  backIcon: { marginRight: 5 },
+  backText: { color: "#fff", fontSize: 14 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
@@ -287,20 +243,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
-  modalMessage: {
-    color: '#fff',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
+  modalMessage: { color: '#fff', fontSize: 14, textAlign: 'center', marginBottom: 20 },
   modalButton: {
     backgroundColor: '#6A0DAD',
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
   },
-  modalButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
+  modalButtonText: { color: '#fff', fontWeight: 'bold' },
 });
