@@ -29,6 +29,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import Head from 'expo-router/head';
+// ...
+
+
 
 // Cloudinary config
 const CLOUDINARY_CLOUD_NAME = 'dw0p7uxa6';
@@ -90,6 +93,23 @@ export default function Challenges() {
   const [uploadingDareId, setUploadingDareId] = useState(null);
   const [isReady, setIsReady] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timedOutModalVisible, setTimedOutModalVisible] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+const [dareIdToDelete, setDareIdToDelete] = useState<string | null>(null);
+const [replies, setReplies] = useState<{ [commentId: string]: Comment[] }>({});
+const [replyToId, setReplyToId] = useState<string | null>(null);
+const [replyToText, setReplyToText] = useState<string | null>(null);
+const [confirmAcceptVisible, setConfirmAcceptVisible] = useState(false);
+const [confirmDeclineVisible, setConfirmDeclineVisible] = useState(false);
+const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
+
+
+
+
+
+  
+
 
   const routerInstance = useRouter();
   const user = auth.currentUser;
@@ -134,10 +154,11 @@ export default function Challenges() {
       if (!user) return Alert.alert('Error', 'You must be logged in to accept a dare.');
       const dareRef = ref(db, `dares/${dareId}`);
       await update(dareRef, {
-        status: 'in-progress',
-        acceptedBy: user.uid,
-        acceptedAt: new Date().toISOString(),
-      });
+  [`acceptedBy/${user.uid}`]: {
+    acceptedAt: new Date().toISOString(),
+  },
+});
+
       Alert.alert('Success', 'Dare accepted!');
     } catch {
       Alert.alert('Error', 'Failed to accept dare.');
@@ -183,30 +204,59 @@ export default function Challenges() {
     });
   };
 
-  const handleAddComment = async () => {
-    if (!newComment.trim()) return Alert.alert('Error', 'Comment cannot be empty.');
-    try {
-      if (!user) return Alert.alert('Error', 'You must be logged in to comment.');
-      await push(ref(db, `dares/${selectedDare}/comments`), {
-        userId: user.uid,
-        username: user.email || 'Anonymous',
-        text: newComment,
-        timestamp: new Date().toISOString(),
-      });
-      setNewComment('');
-      Alert.alert('Success', 'Comment added!');
-    } catch {
-      Alert.alert('Error', 'Failed to add comment.');
-    }
-  };
+ const handleAddComment = async () => {
+  if (!newComment.trim()) return Alert.alert('Error', 'Comment cannot be empty.');
 
-  const startEditDare = (dareId) => {
-    const d = dares.find((x) => x.id === dareId);
-    if (!d) return;
-    setEditedChallenge(d.challenge);
-    setEditedReward(d.reward);
-    setEditMode(true);
-  };
+  try {
+    if (!user) return Alert.alert('Error', 'You must be logged in to comment.');
+
+    const commentData: Comment = {
+      id: Date.now().toString(), // ID për UI
+      userId: user.uid,
+      username: user.email || 'Anonymous',
+      text: newComment,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (replyToId) {
+      setReplies((prev) => ({
+        ...prev,
+        [replyToId]: [...(prev[replyToId] || []), commentData],
+      }));
+    } else {
+      await push(ref(db, `dares/${selectedDare}/comments`), commentData);
+    }
+
+    setNewComment('');
+    setReplyToText(null);
+    setReplyToId(null);
+
+    if (!replyToId) Alert.alert('Success', 'Comment added!');
+  } catch {
+    Alert.alert('Error', 'Failed to add comment.');
+  }
+};
+
+
+
+ const startEditDare = (dareId) => {
+  const dare = dares.find((x) => x.id === dareId);
+  if (!dare) return;
+
+  const createdAt = new Date(dare.createdAt);
+  const now = new Date();
+  const minutesPassed = (now.getTime() - createdAt.getTime()) / 60000;
+
+  if (minutesPassed > 2) {
+    setTimedOutModalVisible(true);
+    return;
+  }
+
+  setEditedChallenge(dare.challenge);
+  setEditedReward(dare.reward);
+  setEditMode(true);
+};
+
 
   const handleUpdateDare = async () => {
     try {
@@ -415,17 +465,23 @@ export default function Challenges() {
               <Text style={styles.likeCount}>{item.likes} Likes</Text>
               {!isOwner && (
                 <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleLikeDare(item.id, item.likedBy || [])}
-                >
-                  <Feather
-                    name="thumbs-up"
-                    size={16}
-                    color="#fff"
-                    style={styles.actionIcon}
-                  />
-                  <Text style={styles.actionText}>Like</Text>
-                </TouchableOpacity>
+  style={[
+    styles.actionButton,
+    item.likedBy?.includes(user?.uid) && { backgroundColor: '#ff6b6b' }
+  ]}
+  onPress={() => handleLikeDare(item.id, item.likedBy || [])}
+>
+  <Feather
+    name="thumbs-up"
+    size={16}
+    color="#fff"
+    styles={styles.actionIcon}
+  />
+  <Text style={styles.actionText}>
+    {item.likedBy?.includes(user?.uid) ? 'Unlike' : 'Like'}
+  </Text>
+</TouchableOpacity>
+
               )}
             </View>
             <TouchableOpacity
@@ -436,48 +492,48 @@ export default function Challenges() {
                 name="message-circle"
                 size={16}
                 color="#fff"
-                style={styles.actionIcon}
+                styles={styles.actionIcon}
               />
               <Text style={styles.actionText}>Comments</Text>
             </TouchableOpacity>
           </View>
 
           {/* Accept/Decline Buttons */}
-          {!item.acceptedBy && !isOwner && (
-            <View
-              style={[
-                styles.row,
-                isSmallScreen && { flexDirection: "column", alignItems: "flex-start" },
-              ]}
-            >
-              <TouchableOpacity
-                style={styles.acceptButton}
-                onPress={() => handleAcceptDare(item.id)}
-              >
-                <Feather
-                  name="check"
-                  size={16}
-                  color="#fff"
-                  style={styles.actionIcon}
-                />
-                <Text style={styles.acceptText}>Accept</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.rejectButton}
-                onPress={() =>
-                  Alert.alert("Declined", "You declined the dare.")
-                }
-              >
-                <Feather
-                  name="x"
-                  size={16}
-                  color="#fff"
-                  style={styles.actionIcon}
-                />
-                <Text style={styles.rejectText}>Decline</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+         {/* Accept/Decline Buttons */}
+{/* Accept/Decline Buttons */}
+{!isOwner && !item.acceptedBy?.[user?.uid] && (
+  <View
+    style={[
+      styles.row,
+      isSmallScreen && { flexDirection: "column", alignItems: "flex-start" },
+    ]}
+  >
+    <TouchableOpacity
+  style={styles.acceptButton}
+  onPress={() => {
+    setDareIdToConfirm(item.id);
+    setConfirmAcceptVisible(true);
+  }}
+>
+  <Feather name="check" size={16} color="#fff" styles={styles.actionIcon} />
+  <Text style={styles.acceptText}>Accept</Text>
+</TouchableOpacity>
+
+<TouchableOpacity
+  style={styles.rejectButton}
+  onPress={() => {
+    setDareIdToConfirm(item.id);
+    setConfirmDeclineVisible(true);
+  }}
+>
+  <Feather name="x" size={16} color="#fff" styles={styles.actionIcon} />
+  <Text style={styles.rejectText}>Decline</Text>
+</TouchableOpacity>
+
+  </View>
+)}
+
+
 
           {/* Upload Evidence Button */}
           {item.status === "in-progress" &&
@@ -497,7 +553,7 @@ export default function Challenges() {
                   name="upload"
                   size={16}
                   color="#fff"
-                  style={styles.actionIcon}
+                  styles={styles.actionIcon}
                 />
                 <Text style={styles.uploadButtonText}>Upload Evidence</Text>
               </TouchableOpacity>
@@ -619,6 +675,15 @@ export default function Challenges() {
               color="#fff"
             />
             <Text style={styles.title}>Available Dares</Text>
+      <TextInput
+  placeholder="Search dare or email..."
+  placeholderTextColor="#ccc"
+  value={searchQuery}
+  onChangeText={setSearchQuery}
+  style={[styles.input, { marginBottom: 15 }]}
+/>
+
+
           </View>
           <View style={[styles.buttonContainer, isSmallScreen && { flexDirection: 'column' }]}>
             <TouchableOpacity style={[styles.mainButton, isSmallScreen && { width: '100%' }]} onPress={() => routerInstance.push('/create-dare')}>
@@ -654,8 +719,16 @@ export default function Challenges() {
               <Text style={styles.buttonText}>Notifications</Text>
             </TouchableOpacity>
           </View>
-
-          <FlatList data={dares} keyExtractor={(i) => i.id} renderItem={renderDare} contentContainerStyle={styles.list} />
+<FlatList
+  data={dares.filter(
+    (d) =>
+      d.challenge.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.username || '').toLowerCase().includes(searchQuery.toLowerCase())
+  )}
+  keyExtractor={(i) => i.id}
+  renderItem={renderDare}
+  contentContainerStyle={styles.list}
+/>
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
@@ -682,15 +755,36 @@ export default function Challenges() {
                     />
                   </TouchableOpacity>
                 </View>
-                <FlatList data={comments} keyExtractor={(c) => c.id} renderItem={({ item }) =>
-                  <View style={styles.commentItem}>
-                    <Text style={styles.commentAuthor}>{item.username}:
-                    </Text>
-                    <Text style={styles.commentText}>{item.text}
-                    </Text>
-                  </View>
-                }
-                  contentContainerStyle={styles.commentsList} />
+                <FlatList
+  data={comments}
+  keyExtractor={(c) => c.id}
+  renderItem={({ item }) => (
+    <View style={styles.commentItem}>
+      <Text style={styles.commentAuthor}>{item.username}:</Text>
+      <Text style={styles.commentText}>{item.text}</Text>
+      <Text style={styles.commentTime}>{new Date(item.timestamp).toLocaleString()}</Text>
+
+      <TouchableOpacity onPress={() => {
+        setReplyToId(item.id);
+        setReplyToText(item.text);
+      }}>
+        <Text style={{ color: '#ccc', fontSize: 13 }}>Reply</Text>
+      </TouchableOpacity>
+
+      {replies[item.id]?.map((reply) => (
+        <View key={reply.id} style={{ marginLeft: 20, marginTop: 5 }}>
+          <Text style={styles.commentAuthor}>{reply.username}:</Text>
+          <Text style={styles.commentText}>{reply.text}</Text>
+          <Text style={styles.commentTime}>{new Date(reply.timestamp).toLocaleString()}</Text>
+        </View>
+      ))}
+    </View>
+  )}
+  contentContainerStyle={styles.commentsList}
+/>
+
+
+                  
                 <View style={styles.commentInputContainer}>
                   <TextInput style={styles.input}
                     placeholder="Add a comment..."
@@ -751,19 +845,30 @@ export default function Challenges() {
                       />
                       <Text style={styles.menuOptionText}>Edit</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuOption}
-                      onPress={handleDeleteDare}>
-                      <Feather name="trash-2"
-                        size={20}
-                        color="#ff6b6b"
-                        styles={styles.menuIcon} />
-                      <Text style={[styles.menuOptionText, styles.deleteText]}>Delete</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.menuButton, styles.closeButton]}
-                      onPress={() => setMenuVisible(false)}>
-                      <Text style={styles.menuButtonText}>Close</Text>
-                    </TouchableOpacity>
-                  </>
+                    <TouchableOpacity
+  style={styles.menuOption}
+  onPress={() => {
+    setDareIdToDelete(selectedDareForMenu);
+    setDeleteConfirmVisible(true);
+  }}
+>
+
+
+
+  <Feather
+    name="trash-2"
+    size={20}
+    color="#ff6b6b"
+    styles={styles.menuIcon}
+  />
+  <Text style={[styles.menuOptionText, styles.deleteText]}>Delete</Text>
+</TouchableOpacity>
+
+                      <TouchableOpacity style={[styles.menuButton, styles.closeButton]}
+                        onPress={() => setMenuVisible(false)}>
+                        <Text style={styles.menuButtonText}>Close</Text>
+                      </TouchableOpacity>
+                    </>
                 )}
               </View>
             </View>
@@ -842,10 +947,138 @@ export default function Challenges() {
             </View>
           </Modal>
         </View>
+        
+        {/* Timed Out Modal */}
+<Modal
+  visible={timedOutModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setTimedOutModalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>Timed Out</Text>
+      <Text style={[styles.commentText, { marginBottom: 15 }]}>
+        You can no longer edit this dare because more than 2 minutes have passed.
+      </Text>
+      <TouchableOpacity
+        style={styles.menuButton}
+        onPress={() => setTimedOutModalVisible(false)}
+      >
+        <Text style={styles.menuButtonText}>OK</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+{/* Confirm Delete Modal */}
+<Modal
+  visible={deleteConfirmVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setDeleteConfirmVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>Confirm Delete</Text>
+      <Text style={[styles.commentText, { marginBottom: 15 }]}>
+        Are you sure you want to delete this dare?
+      </Text>
+
+      <TouchableOpacity
+        style={styles.menuButton}
+        onPress={async () => {
+          if (dareIdToDelete) {
+            await remove(ref(db, `dares/${dareIdToDelete}`));
+            setMenuVisible(false);
+          }
+          setDeleteConfirmVisible(false);
+        }}
+      >
+        <Text style={styles.menuButtonText}>Yes, Delete</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.menuButton, styles.cancelButton]}
+        onPress={() => setDeleteConfirmVisible(false)}
+      >
+        <Text style={styles.menuButtonText}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+              
+
       </LinearGradient>
+      {/* Confirm Accept Modal */}
+<Modal
+  visible={confirmAcceptVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setConfirmAcceptVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>Confirm Accept</Text>
+      <Text style={[styles.commentText, { marginBottom: 15 }]}>
+        Are you sure you want to accept this dare?
+      </Text>
+      <TouchableOpacity
+        style={styles.menuButton}
+        onPress={async () => {
+          if (dareIdToConfirm) await handleAcceptDare(dareIdToConfirm);
+          setConfirmAcceptVisible(false);
+        }}
+      >
+        <Text style={styles.menuButtonText}>Yes, Accept</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.menuButton, styles.cancelButton]}
+        onPress={() => setConfirmAcceptVisible(false)}
+      >
+        <Text style={styles.menuButtonText}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+{/* Confirm Decline Modal */}
+<Modal
+  visible={confirmDeclineVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setConfirmDeclineVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>Confirm Decline</Text>
+      <Text style={[styles.commentText, { marginBottom: 15 }]}>
+        Are you sure you want to decline this dare?
+      </Text>
+      <TouchableOpacity
+        style={styles.menuButton}
+        onPress={() => {
+          setConfirmDeclineVisible(false);
+          // Optionally: mark the dare declined for that user or just hide it from UI
+        }}
+      >
+        <Text style={styles.menuButtonText}>Yes, Decline</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.menuButton, styles.cancelButton]}
+        onPress={() => setConfirmDeclineVisible(false)}
+      >
+        <Text style={styles.menuButtonText}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
     </>
   );
 }
+
 
 //--- Stylesheet ---
 const styles = StyleSheet.create<{
@@ -1426,4 +1659,11 @@ const styles = StyleSheet.create<{
     width: '100%',
     height: '100%'
   },
+
+  commentTime: {
+  fontSize: 11,
+  color: '#aaa',
+  marginTop: 2,
+}
+
 });
