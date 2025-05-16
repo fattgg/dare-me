@@ -103,6 +103,10 @@ const [replyToText, setReplyToText] = useState<string | null>(null);
 const [confirmAcceptVisible, setConfirmAcceptVisible] = useState(false);
 const [confirmDeclineVisible, setConfirmDeclineVisible] = useState(false);
 const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
+const [points, setPoints] = useState(0);
+const [badges, setBadges] = useState<string[]>([]);
+const [leaderboard, setLeaderboard] = useState<any[]>([]);
+const [leaderboardVisible, setLeaderboardVisible] = useState(false);
 
 
 
@@ -115,6 +119,39 @@ const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
   const user = auth.currentUser;
 
   // --- Effects ---
+
+useEffect(() => {
+  const usersRef = ref(db, 'users');
+  onValue(usersRef, (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      const usersArray = Object.entries(data).map(([uid, user]: any) => ({
+        uid,
+        email: user.email,
+        points: user.points || 0,
+        completedCount: Object.values(user?.acceptedDares || {}).filter((d: any) => d.status === 'completed').length || 0,
+      }));
+
+      const sorted = usersArray.sort((a, b) => b.points - a.points);
+      setLeaderboard(sorted);
+    }
+  });
+}, []);
+
+
+useEffect(() => {
+  if (!user) return;
+  const userRef = ref(db, `users/${user.uid}`);
+  onValue(userRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.val();
+      setPoints(data.points || 0);
+      setBadges(data.badges || []);
+    }
+  });
+}, [user]);
+
+
   useEffect(() => {
     if (fontsLoaded) setIsReady(true);
   }, [fontsLoaded]);
@@ -133,12 +170,27 @@ const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
       }
     });
 
+    
+
     return () => {
       if (typeof unsubscribe === 'function') {
         unsubscribe();
       }
     };
   }, []);
+
+  useEffect(() => {
+  if (!user) return;
+  const pointsRef = ref(db, `users/${user.uid}/points`);
+  onValue(pointsRef, (snap) => {
+    if (snap.exists()) {
+      setPoints(snap.val());
+    } else {
+      setPoints(0);
+    }
+  });
+}, [user]);
+
 
   useEffect(() => {
     if (isWeb) {
@@ -185,6 +237,9 @@ const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
         : [...likedBy, user.uid];
       await update(ref(db, `dares/${dareId}`), { likedBy: newLiked });
       if (!likedBy.includes(user.uid)) {
+        if (dare.userId && dare.userId !== user.uid) {
+}
+
         await sendNotification({
           type: 'like',
           dare: { id: dare.id, userId: dare.userId, challenge: dare.challenge },
@@ -194,6 +249,16 @@ const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
       Alert.alert('Error', 'Like failed.');
     }
   };
+
+  const addPointsToUser = async (userId: string, pointsToAdd: number) => {
+  const userRef = ref(db, `users/${userId}/points`);
+  const snapshot = await get(userRef);
+  const currentPoints = snapshot.exists() ? snapshot.val() : 0;
+  await update(ref(db, `users/${userId}`), {
+    points: currentPoints + pointsToAdd
+  });
+};
+
 
   const openComments = (dareId) => {
     setSelectedDare(dareId);
@@ -347,14 +412,71 @@ const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
         status: 'completed',
         completedAt: new Date().toISOString(),
       };
-      if (ai.isCompleted) updateData['aiAnalysis'] = ai;
-      else {
-        Alert.alert('Evidence Declined', 'Does not meet criteria.');
-        setIsLoading(false);
-        return;
-      }
+      if (ai.isCompleted) {
+  updateData['aiAnalysis'] = ai;
+} else {
+  // Provide more detailed AI rejection feedback
+  let reason = "Evidence does not meet the challenge criteria.";
+
+  if (!ai.tags.includes("person") && !ai.tags.includes("face")) {
+    reason = "❌ Face or person not visible in the media.";
+  } else if (
+    ai.description.toLowerCase().includes("object") ||
+    ai.tags.includes("indoor")
+  ) {
+    reason = "❌ Media appears unrelated to the challenge (e.g., random object or indoor scene).";
+  } else if (ai.tags.length === 0) {
+    reason = "❌ AI could not analyze or recognize anything meaningful from the media.";
+  }
+
+  Alert.alert(
+  "Evidence Rejected",
+  reason,
+  [
+    {
+      text: "Retry",
+      onPress: () => handleUploadEvidence(dareId)
+    },
+    {
+      text: "Cancel",
+      style: "cancel"
+    }
+  ]
+);
+setIsLoading(false);
+return;
+
+}
+
 
       await update(ref(db, `dares/${dareId}`), updateData);
+      await addPointsToUser(user.uid, 10); // +10 pikë për përfundim
+
+// Kontrollo dhe shpërndaj badge
+const userBadgeRef = ref(db, `users/${user.uid}/badges`);
+const userDaresRef = ref(db, `dares`);
+const userSnapshot = await get(userBadgeRef);
+const dareSnapshot = await get(userDaresRef);
+
+if (dareSnapshot.exists()) {
+  const allDares = dareSnapshot.val();
+  const completedByUser = Object.values(allDares).filter((d: any) => d.status === 'completed' && d.acceptedBy?.[user.uid]);
+  const postedByUser = Object.values(allDares).filter((d: any) => d.userId === user.uid);
+
+  const badgesToAssign: string[] = [];
+
+  if (completedByUser.length === 1) badgesToAssign.push('🎯 First Dare Completed');
+  if (postedByUser.length === 10) badgesToAssign.push('🔥 10 Dares Posted');
+
+  const currentBadges = userSnapshot.exists() ? userSnapshot.val() : [];
+  const updatedBadges = [...new Set([...currentBadges, ...badgesToAssign])];
+
+  await update(ref(db, `users/${user.uid}`), {
+    badges: updatedBadges
+  });
+}
+
+
 
       // Notify dare owner
       const dareSnap = await get(ref(db, `dares/${dareId}`));
@@ -438,7 +560,12 @@ const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
           </View>
           <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
           <Text style={styles.dareText}>Reward: {item.reward}</Text>
-          <Text style={styles.dareText}>Posted by: {item.username || "Anonymous"}</Text>
+          <TouchableOpacity onPress={() => routerInstance.push(`/profile?uid=${item.userId}`)}>
+  <Text style={[styles.dareText, { textDecorationLine: 'underline', color: '#B788C4' }]}>
+    Posted by: {item.username || 'Anonymous'}
+  </Text>
+</TouchableOpacity>
+
           <Text style={styles.statusText}>
             Status:{" "}
             {item.status === "completed"
@@ -675,6 +802,16 @@ const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
               color="#fff"
             />
             <Text style={styles.title}>Available Dares</Text>
+            <Text style={{ color: '#fff', marginTop: 5, fontFamily: 'Montserrat-SemiBold' }}>
+  Your Points: {points}
+</Text>
+{badges.length > 0 && (
+  <Text style={{ color: '#fff', fontStyle: 'italic', marginTop: 5 }}>
+    🏅 Badges: {badges.join(', ')}
+  </Text>
+)}
+
+
       <TextInput
   placeholder="Search dare or email..."
   placeholderTextColor="#ccc"
@@ -719,6 +856,27 @@ const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
               <Text style={styles.buttonText}>Notifications</Text>
             </TouchableOpacity>
           </View>
+          
+
+<TouchableOpacity
+  style={[styles.mainButton, isSmallScreen && { width: '100%' }]}
+  onPress={() => setLeaderboardVisible(true)}
+>
+  <Feather name="bar-chart" size={18} color="#fff" styles={styles.buttonIcon} />
+  <Text style={styles.buttonText}>Leaderboard</Text>
+</TouchableOpacity>
+
+<TouchableOpacity
+  style={styles.mainButton}
+  onPress={() => routerInstance.push("/profile")}
+>
+  <Feather name="user" size={18} color="#fff" styles={styles.buttonIcon} />
+  <Text style={styles.buttonText}>My Profile</Text>
+</TouchableOpacity>
+
+
+
+
 <FlatList
   data={dares.filter(
     (d) =>
@@ -873,6 +1031,92 @@ const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
               </View>
             </View>
           </Modal>
+          {/* Leaderboard Modal */}
+  <Modal
+  visible={leaderboardVisible}
+  transparent
+  animationType="slide"
+  onRequestClose={() => setLeaderboardVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={[styles.modalContainer, { maxHeight: 450 }]}>
+      <View style={{ alignItems: 'center', marginBottom: 20 }}>
+  <Text style={styles.modalTitle}>🏆 Leaderboard</Text>
+  <Text style={{ color: '#ccc', fontSize: 13, fontStyle: 'italic' }}>
+    See who's leading the dare challenge!
+  </Text>
+</View>
+
+
+      <FlatList
+  data={leaderboard}
+  keyExtractor={(item) => item.uid}
+  renderItem={({ item, index }) => {
+    const isCurrentUser = item.uid === user?.uid;
+
+    let medal = '';
+    let color = '#fff';
+
+    if (index === 0) {
+      medal = '🥇';
+      color = '#FFD700';
+    } else if (index === 1) {
+      medal = '🥈';
+      color = '#C0C0C0';
+    } else if (index === 2) {
+      medal = '🥉';
+      color = '#CD7F32';
+    }
+
+    return (
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: 10,
+          backgroundColor: isCurrentUser
+            ? 'rgba(255,255,255,0.1)' // Highlight for current user
+            : 'rgba(255,255,255,0.05)',
+          borderRadius: 10,
+          padding: 10,
+          borderWidth: isCurrentUser ? 1 : 0,
+          borderColor: isCurrentUser ? '#FFD700' : 'transparent',
+        }}
+      >
+        <Text style={{ fontSize: 18, width: 30, color }}>{medal || index + 1}</Text>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              color: isCurrentUser ? '#FFD700' : '#fff',
+              fontWeight: isCurrentUser ? 'bold' : 'normal',
+              fontSize: 15,
+              fontFamily: 'Montserrat-SemiBold',
+            }}
+          >
+            {item.email || 'User'}
+          </Text>
+          <Text style={{ color: '#ccc', fontSize: 13 }}>
+            Points: {item.points} | Completed: {item.completedCount}
+          </Text>
+        </View>
+      </View>
+    );
+  }}
+  contentContainerStyle={{ paddingBottom: 10 }}
+  showsVerticalScrollIndicator={true}
+/>
+
+
+      <TouchableOpacity
+        style={[styles.menuButton, { marginTop: 10 }]}
+        onPress={() => setLeaderboardVisible(false)}
+      >
+        <Text style={styles.menuButtonText}>Close</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
 
           {/* Evidence Modal */}
           <Modal
@@ -1504,11 +1748,17 @@ const styles = StyleSheet.create<{
   },
 
   modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
-    fontFamily: 'Montserrat-SemiBold'
-  },
+  fontSize: 26,
+  fontWeight: 'bold',
+  textAlign: 'center',
+  color: '#FFD700', // gold
+  marginBottom: 20,
+  textShadowColor: 'rgba(0, 0, 0, 0.7)',
+  textShadowOffset: { width: 1, height: 1 },
+  textShadowRadius: 3,
+  fontFamily: 'Montserrat-SemiBold',
+},
+
 
   commentsList: {
     flexGrow: 1
