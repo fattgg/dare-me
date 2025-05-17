@@ -96,23 +96,24 @@ export default function Challenges() {
   const [searchQuery, setSearchQuery] = useState('');
   const [timedOutModalVisible, setTimedOutModalVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
-const [dareIdToDelete, setDareIdToDelete] = useState<string | null>(null);
-const [replies, setReplies] = useState<{ [commentId: string]: Comment[] }>({});
-const [replyToId, setReplyToId] = useState<string | null>(null);
-const [replyToText, setReplyToText] = useState<string | null>(null);
-const [confirmAcceptVisible, setConfirmAcceptVisible] = useState(false);
-const [confirmDeclineVisible, setConfirmDeclineVisible] = useState(false);
-const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
-const [points, setPoints] = useState(0);
-const [badges, setBadges] = useState<string[]>([]);
-const [leaderboard, setLeaderboard] = useState<any[]>([]);
-const [leaderboardVisible, setLeaderboardVisible] = useState(false);
+  const [dareIdToDelete, setDareIdToDelete] = useState<string | null>(null);
+  const [replies, setReplies] = useState<{ [commentId: string]: Comment[] }>({});
+  const [replyToId, setReplyToId] = useState<string | null>(null);
+  const [replyToText, setReplyToText] = useState<string | null>(null);
+  const [confirmAcceptVisible, setConfirmAcceptVisible] = useState(false);
+  const [confirmDeclineVisible, setConfirmDeclineVisible] = useState(false);
+  const [dareIdToConfirm, setDareIdToConfirm] = useState<string | null>(null);
+  const [points, setPoints] = useState(0);
+  const [badges, setBadges] = useState<string[]>([]);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [leaderboardVisible, setLeaderboardVisible] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
 
 
 
 
 
-  
+
 
 
   const routerInstance = useRouter();
@@ -120,36 +121,36 @@ const [leaderboardVisible, setLeaderboardVisible] = useState(false);
 
   // --- Effects ---
 
-useEffect(() => {
-  const usersRef = ref(db, 'users');
-  onValue(usersRef, (snapshot) => {
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      const usersArray = Object.entries(data).map(([uid, user]: any) => ({
-        uid,
-        email: user.email,
-        points: user.points || 0,
-        completedCount: Object.values(user?.acceptedDares || {}).filter((d: any) => d.status === 'completed').length || 0,
-      }));
+  useEffect(() => {
+    const usersRef = ref(db, 'users');
+    onValue(usersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const usersArray = Object.entries(data).map(([uid, user]: any) => ({
+          uid,
+          email: user.email,
+          points: user.points || 0,
+          completedCount: Object.values(user?.acceptedDares || {}).filter((d: any) => d.status === 'completed').length || 0,
+        }));
 
-      const sorted = usersArray.sort((a, b) => b.points - a.points);
-      setLeaderboard(sorted);
-    }
-  });
-}, []);
+        const sorted = usersArray.sort((a, b) => b.points - a.points);
+        setLeaderboard(sorted);
+      }
+    });
+  }, []);
 
 
-useEffect(() => {
-  if (!user) return;
-  const userRef = ref(db, `users/${user.uid}`);
-  onValue(userRef, (snap) => {
-    if (snap.exists()) {
-      const data = snap.val();
-      setPoints(data.points || 0);
-      setBadges(data.badges || []);
-    }
-  });
-}, [user]);
+  useEffect(() => {
+    if (!user) return;
+    const userRef = ref(db, `users/${user.uid}`);
+    onValue(userRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        setPoints(data.points || 0);
+        setBadges(data.badges || []);
+      }
+    });
+  }, [user]);
 
 
   useEffect(() => {
@@ -170,7 +171,7 @@ useEffect(() => {
       }
     });
 
-    
+
 
     return () => {
       if (typeof unsubscribe === 'function') {
@@ -180,16 +181,16 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
-  if (!user) return;
-  const pointsRef = ref(db, `users/${user.uid}/points`);
-  onValue(pointsRef, (snap) => {
-    if (snap.exists()) {
-      setPoints(snap.val());
-    } else {
-      setPoints(0);
-    }
-  });
-}, [user]);
+    if (!user) return;
+    const pointsRef = ref(db, `users/${user.uid}/points`);
+    onValue(pointsRef, (snap) => {
+      if (snap.exists()) {
+        setPoints(snap.val());
+      } else {
+        setPoints(0);
+      }
+    });
+  }, [user]);
 
 
   useEffect(() => {
@@ -206,10 +207,10 @@ useEffect(() => {
       if (!user) return Alert.alert('Error', 'You must be logged in to accept a dare.');
       const dareRef = ref(db, `dares/${dareId}`);
       await update(dareRef, {
-  [`acceptedBy/${user.uid}`]: {
-    acceptedAt: new Date().toISOString(),
-  },
-});
+        [`acceptedBy/${user.uid}`]: {
+          acceptedAt: new Date().toISOString(),
+        },
+      });
 
       Alert.alert('Success', 'Dare accepted!');
     } catch {
@@ -238,7 +239,7 @@ useEffect(() => {
       await update(ref(db, `dares/${dareId}`), { likedBy: newLiked });
       if (!likedBy.includes(user.uid)) {
         if (dare.userId && dare.userId !== user.uid) {
-}
+        }
 
         await sendNotification({
           type: 'like',
@@ -251,13 +252,13 @@ useEffect(() => {
   };
 
   const addPointsToUser = async (userId: string, pointsToAdd: number) => {
-  const userRef = ref(db, `users/${userId}/points`);
-  const snapshot = await get(userRef);
-  const currentPoints = snapshot.exists() ? snapshot.val() : 0;
-  await update(ref(db, `users/${userId}`), {
-    points: currentPoints + pointsToAdd
-  });
-};
+    const userRef = ref(db, `users/${userId}/points`);
+    const snapshot = await get(userRef);
+    const currentPoints = snapshot.exists() ? snapshot.val() : 0;
+    await update(ref(db, `users/${userId}`), {
+      points: currentPoints + pointsToAdd
+    });
+  };
 
 
   const openComments = (dareId) => {
@@ -269,58 +270,58 @@ useEffect(() => {
     });
   };
 
- const handleAddComment = async () => {
-  if (!newComment.trim()) return Alert.alert('Error', 'Comment cannot be empty.');
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return Alert.alert('Error', 'Comment cannot be empty.');
 
-  try {
-    if (!user) return Alert.alert('Error', 'You must be logged in to comment.');
+    try {
+      if (!user) return Alert.alert('Error', 'You must be logged in to comment.');
 
-    const commentData: Comment = {
-      id: Date.now().toString(), // ID për UI
-      userId: user.uid,
-      username: user.email || 'Anonymous',
-      text: newComment,
-      timestamp: new Date().toISOString(),
-    };
+      const commentData: Comment = {
+        id: Date.now().toString(), // ID për UI
+        userId: user.uid,
+        username: user.email || 'Anonymous',
+        text: newComment,
+        timestamp: new Date().toISOString(),
+      };
 
-    if (replyToId) {
-      setReplies((prev) => ({
-        ...prev,
-        [replyToId]: [...(prev[replyToId] || []), commentData],
-      }));
-    } else {
-      await push(ref(db, `dares/${selectedDare}/comments`), commentData);
+      if (replyToId) {
+        setReplies((prev) => ({
+          ...prev,
+          [replyToId]: [...(prev[replyToId] || []), commentData],
+        }));
+      } else {
+        await push(ref(db, `dares/${selectedDare}/comments`), commentData);
+      }
+
+      setNewComment('');
+      setReplyToText(null);
+      setReplyToId(null);
+
+      if (!replyToId) Alert.alert('Success', 'Comment added!');
+    } catch {
+      Alert.alert('Error', 'Failed to add comment.');
+    }
+  };
+
+
+
+  const startEditDare = (dareId) => {
+    const dare = dares.find((x) => x.id === dareId);
+    if (!dare) return;
+
+    const createdAt = new Date(dare.createdAt);
+    const now = new Date();
+    const minutesPassed = (now.getTime() - createdAt.getTime()) / 60000;
+
+    if (minutesPassed > 2) {
+      setTimedOutModalVisible(true);
+      return;
     }
 
-    setNewComment('');
-    setReplyToText(null);
-    setReplyToId(null);
-
-    if (!replyToId) Alert.alert('Success', 'Comment added!');
-  } catch {
-    Alert.alert('Error', 'Failed to add comment.');
-  }
-};
-
-
-
- const startEditDare = (dareId) => {
-  const dare = dares.find((x) => x.id === dareId);
-  if (!dare) return;
-
-  const createdAt = new Date(dare.createdAt);
-  const now = new Date();
-  const minutesPassed = (now.getTime() - createdAt.getTime()) / 60000;
-
-  if (minutesPassed > 2) {
-    setTimedOutModalVisible(true);
-    return;
-  }
-
-  setEditedChallenge(dare.challenge);
-  setEditedReward(dare.reward);
-  setEditMode(true);
-};
+    setEditedChallenge(dare.challenge);
+    setEditedReward(dare.reward);
+    setEditMode(true);
+  };
 
 
   const handleUpdateDare = async () => {
@@ -413,68 +414,68 @@ useEffect(() => {
         completedAt: new Date().toISOString(),
       };
       if (ai.isCompleted) {
-  updateData['aiAnalysis'] = ai;
-} else {
-  // Provide more detailed AI rejection feedback
-  let reason = "Evidence does not meet the challenge criteria.";
+        updateData['aiAnalysis'] = ai;
+      } else {
+        // Provide more detailed AI rejection feedback
+        let reason = "Evidence does not meet the challenge criteria.";
 
-  if (!ai.tags.includes("person") && !ai.tags.includes("face")) {
-    reason = "❌ Face or person not visible in the media.";
-  } else if (
-    ai.description.toLowerCase().includes("object") ||
-    ai.tags.includes("indoor")
-  ) {
-    reason = "❌ Media appears unrelated to the challenge (e.g., random object or indoor scene).";
-  } else if (ai.tags.length === 0) {
-    reason = "❌ AI could not analyze or recognize anything meaningful from the media.";
-  }
+        if (!ai.tags.includes("person") && !ai.tags.includes("face")) {
+          reason = "❌ Face or person not visible in the media.";
+        } else if (
+          ai.description.toLowerCase().includes("object") ||
+          ai.tags.includes("indoor")
+        ) {
+          reason = "❌ Media appears unrelated to the challenge (e.g., random object or indoor scene).";
+        } else if (ai.tags.length === 0) {
+          reason = "❌ AI could not analyze or recognize anything meaningful from the media.";
+        }
 
-  Alert.alert(
-  "Evidence Rejected",
-  reason,
-  [
-    {
-      text: "Retry",
-      onPress: () => handleUploadEvidence(dareId)
-    },
-    {
-      text: "Cancel",
-      style: "cancel"
-    }
-  ]
-);
-setIsLoading(false);
-return;
+        Alert.alert(
+          "Evidence Rejected",
+          reason,
+          [
+            {
+              text: "Retry",
+              onPress: () => handleUploadEvidence(dareId)
+            },
+            {
+              text: "Cancel",
+              style: "cancel"
+            }
+          ]
+        );
+        setIsLoading(false);
+        return;
 
-}
+      }
 
 
       await update(ref(db, `dares/${dareId}`), updateData);
       await addPointsToUser(user.uid, 10); // +10 pikë për përfundim
 
-// Kontrollo dhe shpërndaj badge
-const userBadgeRef = ref(db, `users/${user.uid}/badges`);
-const userDaresRef = ref(db, `dares`);
-const userSnapshot = await get(userBadgeRef);
-const dareSnapshot = await get(userDaresRef);
+      // Kontrollo dhe shpërndaj badge
+      const userBadgeRef = ref(db, `users/${user.uid}/badges`);
+      const userDaresRef = ref(db, `dares`);
+      const userSnapshot = await get(userBadgeRef);
+      const dareSnapshot = await get(userDaresRef);
 
-if (dareSnapshot.exists()) {
-  const allDares = dareSnapshot.val();
-  const completedByUser = Object.values(allDares).filter((d: any) => d.status === 'completed' && d.acceptedBy?.[user.uid]);
-  const postedByUser = Object.values(allDares).filter((d: any) => d.userId === user.uid);
+      if (dareSnapshot.exists()) {
+        const allDares = dareSnapshot.val();
+        const completedByUser = Object.values(allDares).filter((d: any) => d.status === 'completed' && d.acceptedBy?.[user.uid]);
+        const postedByUser = Object.values(allDares).filter((d: any) => d.userId === user.uid);
 
-  const badgesToAssign: string[] = [];
+        const badgesToAssign: string[] = [];
 
-  if (completedByUser.length === 1) badgesToAssign.push('🎯 First Dare Completed');
-  if (postedByUser.length === 10) badgesToAssign.push('🔥 10 Dares Posted');
+        if (completedByUser.length === 1) badgesToAssign.push('🎯 First Dare Completed');
+        if (postedByUser.length === 10) badgesToAssign.push('🔥 10 Dares Posted');
 
-  const currentBadges = userSnapshot.exists() ? userSnapshot.val() : [];
-  const updatedBadges = [...new Set([...currentBadges, ...badgesToAssign])];
+        const currentBadges = userSnapshot.exists() ? userSnapshot.val() : [];
+        const updatedBadges = [...new Set([...currentBadges, ...badgesToAssign])];
 
-  await update(ref(db, `users/${user.uid}`), {
-    badges: updatedBadges
-  });
-}
+        await update(ref(db, `users/${user.uid}`), {
+          badges: updatedBadges
+        });
+      }
 
 
 
@@ -561,10 +562,10 @@ if (dareSnapshot.exists()) {
           <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
           <Text style={styles.dareText}>Reward: {item.reward}</Text>
           <TouchableOpacity onPress={() => routerInstance.push(`/profile?uid=${item.userId}`)}>
-  <Text style={[styles.dareText, { textDecorationLine: 'underline', color: '#B788C4' }]}>
-    Posted by: {item.username || 'Anonymous'}
-  </Text>
-</TouchableOpacity>
+            <Text style={[styles.dareText, { textDecorationLine: 'underline', color: '#B788C4' }]}>
+              Posted by: {item.username || 'Anonymous'}
+            </Text>
+          </TouchableOpacity>
 
           <Text style={styles.statusText}>
             Status:{" "}
@@ -592,22 +593,22 @@ if (dareSnapshot.exists()) {
               <Text style={styles.likeCount}>{item.likes} Likes</Text>
               {!isOwner && (
                 <TouchableOpacity
-  style={[
-    styles.actionButton,
-    item.likedBy?.includes(user?.uid) && { backgroundColor: '#ff6b6b' }
-  ]}
-  onPress={() => handleLikeDare(item.id, item.likedBy || [])}
->
-  <Feather
-    name="thumbs-up"
-    size={16}
-    color="#fff"
-    styles={styles.actionIcon}
-  />
-  <Text style={styles.actionText}>
-    {item.likedBy?.includes(user?.uid) ? 'Unlike' : 'Like'}
-  </Text>
-</TouchableOpacity>
+                  style={[
+                    styles.actionButton,
+                    item.likedBy?.includes(user?.uid) && { backgroundColor: '#ff6b6b' }
+                  ]}
+                  onPress={() => handleLikeDare(item.id, item.likedBy || [])}
+                >
+                  <Feather
+                    name="thumbs-up"
+                    size={16}
+                    color="#fff"
+                    styles={styles.actionIcon}
+                  />
+                  <Text style={styles.actionText}>
+                    {item.likedBy?.includes(user?.uid) ? 'Unlike' : 'Like'}
+                  </Text>
+                </TouchableOpacity>
 
               )}
             </View>
@@ -626,39 +627,39 @@ if (dareSnapshot.exists()) {
           </View>
 
           {/* Accept/Decline Buttons */}
-         {/* Accept/Decline Buttons */}
-{/* Accept/Decline Buttons */}
-{!isOwner && !item.acceptedBy?.[user?.uid] && (
-  <View
-    style={[
-      styles.row,
-      isSmallScreen && { flexDirection: "column", alignItems: "flex-start" },
-    ]}
-  >
-    <TouchableOpacity
-  style={styles.acceptButton}
-  onPress={() => {
-    setDareIdToConfirm(item.id);
-    setConfirmAcceptVisible(true);
-  }}
->
-  <Feather name="check" size={16} color="#fff" styles={styles.actionIcon} />
-  <Text style={styles.acceptText}>Accept</Text>
-</TouchableOpacity>
+          {/* Accept/Decline Buttons */}
+          {/* Accept/Decline Buttons */}
+          {!isOwner && !item.acceptedBy?.[user?.uid] && (
+            <View
+              style={[
+                styles.row,
+                isSmallScreen && { flexDirection: "column", alignItems: "flex-start" },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.acceptButton}
+                onPress={() => {
+                  setDareIdToConfirm(item.id);
+                  setConfirmAcceptVisible(true);
+                }}
+              >
+                <Feather name="check" size={16} color="#fff" styles={styles.actionIcon} />
+                <Text style={styles.acceptText}>Accept</Text>
+              </TouchableOpacity>
 
-<TouchableOpacity
-  style={styles.rejectButton}
-  onPress={() => {
-    setDareIdToConfirm(item.id);
-    setConfirmDeclineVisible(true);
-  }}
->
-  <Feather name="x" size={16} color="#fff" styles={styles.actionIcon} />
-  <Text style={styles.rejectText}>Decline</Text>
-</TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rejectButton}
+                onPress={() => {
+                  setDareIdToConfirm(item.id);
+                  setConfirmDeclineVisible(true);
+                }}
+              >
+                <Feather name="x" size={16} color="#fff" styles={styles.actionIcon} />
+                <Text style={styles.rejectText}>Decline</Text>
+              </TouchableOpacity>
 
-  </View>
-)}
+            </View>
+          )}
 
 
 
@@ -778,6 +779,48 @@ if (dareSnapshot.exists()) {
     return (
       <LinearGradient colors={['#4B0082', '#B788C4']} style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#fff" />
+
+        <Modal visible={sidebarVisible} transparent animationType="slide" onRequestClose={() => setSidebarVisible(false)}>
+          <View style={{ flex: 1, flexDirection: 'row' }}>
+            <View style={{
+              width: 250,
+              backgroundColor: '#350064',
+              paddingVertical: 40,
+              paddingHorizontal: 20
+            }}>
+              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+                setSidebarVisible(false);
+                routerInstance.push('/profile');
+              }}>
+                <Feather name="user" size={20} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 10 }}>My Profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+                setSidebarVisible(false);
+                setLeaderboardVisible(true);
+              }}>
+                <Feather name="bar-chart" size={20} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 10 }}>Leaderboard</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+                setSidebarVisible(false);
+                routerInstance.push('/my-dares');
+              }}>
+                <Feather name="list" size={20} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 10 }}>My Accepted Dares</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ marginTop: 30 }} onPress={() => {
+                setSidebarVisible(false);
+                handleLogout();
+              }}>
+                <Feather name="log-out" size={20} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 10 }}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={{ flex: 1 }} onPress={() => setSidebarVisible(false)} />
+          </View>
+        </Modal>
+
       </LinearGradient>
     );
   }
@@ -794,6 +837,11 @@ if (dareSnapshot.exists()) {
         colors={['#4B0082', '#B788C4']}
         style={styles.gradient}
       >
+
+        <TouchableOpacity onPress={() => setSidebarVisible(true)} style={{ position: 'absolute', top: 10, left: 10, zIndex: 99 }}>
+          <Feather name="menu" size={28} color="#fff" />
+        </TouchableOpacity>
+
         <View style={styles.container}>
           <View style={styles.headerContainer}>
             <Feather
@@ -803,22 +851,22 @@ if (dareSnapshot.exists()) {
             />
             <Text style={styles.title}>Available Dares</Text>
             <Text style={{ color: '#fff', marginTop: 5, fontFamily: 'Montserrat-SemiBold' }}>
-  Your Points: {points}
-</Text>
-{badges.length > 0 && (
-  <Text style={{ color: '#fff', fontStyle: 'italic', marginTop: 5 }}>
-    🏅 Badges: {badges.join(', ')}
-  </Text>
-)}
+              Your Points: {points}
+            </Text>
+            {badges.length > 0 && (
+              <Text style={{ color: '#fff', fontStyle: 'italic', marginTop: 5 }}>
+                🏅 Badges: {badges.join(', ')}
+              </Text>
+            )}
 
 
-      <TextInput
-  placeholder="Search dare or email..."
-  placeholderTextColor="#ccc"
-  value={searchQuery}
-  onChangeText={setSearchQuery}
-  style={[styles.input, { marginBottom: 15 }]}
-/>
+            <TextInput
+              placeholder="Search dare or email..."
+              placeholderTextColor="#ccc"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={[styles.input, { marginBottom: 15 }]}
+            />
 
 
           </View>
@@ -833,15 +881,7 @@ if (dareSnapshot.exists()) {
               <Text style={styles.buttonText}>Post a Dare</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.mainButton, isSmallScreen && { width: '100%' }]} onPress={() => routerInstance.push('/my-dares')}>
-              <Feather
-                name="list"
-                size={18}
-                color="#fff"
-                styles={styles.buttonIcon}
-              />
-              <Text style={styles.buttonText}>My Accepted Dares</Text>
-            </TouchableOpacity>
+
 
             <TouchableOpacity
               style={styles.mainButton}
@@ -856,49 +896,26 @@ if (dareSnapshot.exists()) {
               <Text style={styles.buttonText}>Notifications</Text>
             </TouchableOpacity>
           </View>
-          
-
-<TouchableOpacity
-  style={[styles.mainButton, isSmallScreen && { width: '100%' }]}
-  onPress={() => setLeaderboardVisible(true)}
->
-  <Feather name="bar-chart" size={18} color="#fff" styles={styles.buttonIcon} />
-  <Text style={styles.buttonText}>Leaderboard</Text>
-</TouchableOpacity>
-
-<TouchableOpacity
-  style={styles.mainButton}
-  onPress={() => routerInstance.push("/profile")}
->
-  <Feather name="user" size={18} color="#fff" styles={styles.buttonIcon} />
-  <Text style={styles.buttonText}>My Profile</Text>
-</TouchableOpacity>
 
 
 
 
-<FlatList
-  data={dares.filter(
-    (d) =>
-      d.challenge.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (d.username || '').toLowerCase().includes(searchQuery.toLowerCase())
-  )}
-  keyExtractor={(i) => i.id}
-  renderItem={renderDare}
-  contentContainerStyle={styles.list}
-/>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <Feather
-              name="log-out"
-              size={18}
-              color="#fff"
-              styles={styles.buttonIcon}
-            />
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
+
+
+
+
+
+          <FlatList
+            data={dares.filter(
+              (d) =>
+                d.challenge.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (d.username || '').toLowerCase().includes(searchQuery.toLowerCase())
+            )}
+            keyExtractor={(i) => i.id}
+            renderItem={renderDare}
+            contentContainerStyle={styles.list}
+          />
+
 
           {/* Comments Modal */}
           <Modal visible={modalVisible} transparent animationType="slide">
@@ -914,35 +931,35 @@ if (dareSnapshot.exists()) {
                   </TouchableOpacity>
                 </View>
                 <FlatList
-  data={comments}
-  keyExtractor={(c) => c.id}
-  renderItem={({ item }) => (
-    <View style={styles.commentItem}>
-      <Text style={styles.commentAuthor}>{item.username}:</Text>
-      <Text style={styles.commentText}>{item.text}</Text>
-      <Text style={styles.commentTime}>{new Date(item.timestamp).toLocaleString()}</Text>
+                  data={comments}
+                  keyExtractor={(c) => c.id}
+                  renderItem={({ item }) => (
+                    <View style={styles.commentItem}>
+                      <Text style={styles.commentAuthor}>{item.username}:</Text>
+                      <Text style={styles.commentText}>{item.text}</Text>
+                      <Text style={styles.commentTime}>{new Date(item.timestamp).toLocaleString()}</Text>
 
-      <TouchableOpacity onPress={() => {
-        setReplyToId(item.id);
-        setReplyToText(item.text);
-      }}>
-        <Text style={{ color: '#ccc', fontSize: 13 }}>Reply</Text>
-      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => {
+                        setReplyToId(item.id);
+                        setReplyToText(item.text);
+                      }}>
+                        <Text style={{ color: '#ccc', fontSize: 13 }}>Reply</Text>
+                      </TouchableOpacity>
 
-      {replies[item.id]?.map((reply) => (
-        <View key={reply.id} style={{ marginLeft: 20, marginTop: 5 }}>
-          <Text style={styles.commentAuthor}>{reply.username}:</Text>
-          <Text style={styles.commentText}>{reply.text}</Text>
-          <Text style={styles.commentTime}>{new Date(reply.timestamp).toLocaleString()}</Text>
-        </View>
-      ))}
-    </View>
-  )}
-  contentContainerStyle={styles.commentsList}
-/>
+                      {replies[item.id]?.map((reply) => (
+                        <View key={reply.id} style={{ marginLeft: 20, marginTop: 5 }}>
+                          <Text style={styles.commentAuthor}>{reply.username}:</Text>
+                          <Text style={styles.commentText}>{reply.text}</Text>
+                          <Text style={styles.commentTime}>{new Date(reply.timestamp).toLocaleString()}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  contentContainerStyle={styles.commentsList}
+                />
 
 
-                  
+
                 <View style={styles.commentInputContainer}>
                   <TextInput style={styles.input}
                     placeholder="Add a comment..."
@@ -1004,118 +1021,118 @@ if (dareSnapshot.exists()) {
                       <Text style={styles.menuOptionText}>Edit</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-  style={styles.menuOption}
-  onPress={() => {
-    setDareIdToDelete(selectedDareForMenu);
-    setDeleteConfirmVisible(true);
-  }}
->
+                      style={styles.menuOption}
+                      onPress={() => {
+                        setDareIdToDelete(selectedDareForMenu);
+                        setDeleteConfirmVisible(true);
+                      }}
+                    >
 
 
 
-  <Feather
-    name="trash-2"
-    size={20}
-    color="#ff6b6b"
-    styles={styles.menuIcon}
-  />
-  <Text style={[styles.menuOptionText, styles.deleteText]}>Delete</Text>
-</TouchableOpacity>
+                      <Feather
+                        name="trash-2"
+                        size={20}
+                        color="#ff6b6b"
+                        styles={styles.menuIcon}
+                      />
+                      <Text style={[styles.menuOptionText, styles.deleteText]}>Delete</Text>
+                    </TouchableOpacity>
 
-                      <TouchableOpacity style={[styles.menuButton, styles.closeButton]}
-                        onPress={() => setMenuVisible(false)}>
-                        <Text style={styles.menuButtonText}>Close</Text>
-                      </TouchableOpacity>
-                    </>
+                    <TouchableOpacity style={[styles.menuButton, styles.closeButton]}
+                      onPress={() => setMenuVisible(false)}>
+                      <Text style={styles.menuButtonText}>Close</Text>
+                    </TouchableOpacity>
+                  </>
                 )}
               </View>
             </View>
           </Modal>
           {/* Leaderboard Modal */}
-  <Modal
-  visible={leaderboardVisible}
-  transparent
-  animationType="slide"
-  onRequestClose={() => setLeaderboardVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={[styles.modalContainer, { maxHeight: 450 }]}>
-      <View style={{ alignItems: 'center', marginBottom: 20 }}>
-  <Text style={styles.modalTitle}>🏆 Leaderboard</Text>
-  <Text style={{ color: '#ccc', fontSize: 13, fontStyle: 'italic' }}>
-    See who's leading the dare challenge!
-  </Text>
-</View>
-
-
-      <FlatList
-  data={leaderboard}
-  keyExtractor={(item) => item.uid}
-  renderItem={({ item, index }) => {
-    const isCurrentUser = item.uid === user?.uid;
-
-    let medal = '';
-    let color = '#fff';
-
-    if (index === 0) {
-      medal = '🥇';
-      color = '#FFD700';
-    } else if (index === 1) {
-      medal = '🥈';
-      color = '#C0C0C0';
-    } else if (index === 2) {
-      medal = '🥉';
-      color = '#CD7F32';
-    }
-
-    return (
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginBottom: 10,
-          backgroundColor: isCurrentUser
-            ? 'rgba(255,255,255,0.1)' // Highlight for current user
-            : 'rgba(255,255,255,0.05)',
-          borderRadius: 10,
-          padding: 10,
-          borderWidth: isCurrentUser ? 1 : 0,
-          borderColor: isCurrentUser ? '#FFD700' : 'transparent',
-        }}
-      >
-        <Text style={{ fontSize: 18, width: 30, color }}>{medal || index + 1}</Text>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              color: isCurrentUser ? '#FFD700' : '#fff',
-              fontWeight: isCurrentUser ? 'bold' : 'normal',
-              fontSize: 15,
-              fontFamily: 'Montserrat-SemiBold',
-            }}
+          <Modal
+            visible={leaderboardVisible}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setLeaderboardVisible(false)}
           >
-            {item.email || 'User'}
-          </Text>
-          <Text style={{ color: '#ccc', fontSize: 13 }}>
-            Points: {item.points} | Completed: {item.completedCount}
-          </Text>
-        </View>
-      </View>
-    );
-  }}
-  contentContainerStyle={{ paddingBottom: 10 }}
-  showsVerticalScrollIndicator={true}
-/>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContainer, { maxHeight: 450 }]}>
+                <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                  <Text style={styles.modalTitle}>🏆 Leaderboard</Text>
+                  <Text style={{ color: '#ccc', fontSize: 13, fontStyle: 'italic' }}>
+                    See who's leading the dare challenge!
+                  </Text>
+                </View>
 
 
-      <TouchableOpacity
-        style={[styles.menuButton, { marginTop: 10 }]}
-        onPress={() => setLeaderboardVisible(false)}
-      >
-        <Text style={styles.menuButtonText}>Close</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+                <FlatList
+                  data={leaderboard}
+                  keyExtractor={(item) => item.uid}
+                  renderItem={({ item, index }) => {
+                    const isCurrentUser = item.uid === user?.uid;
+
+                    let medal = '';
+                    let color = '#fff';
+
+                    if (index === 0) {
+                      medal = '🥇';
+                      color = '#FFD700';
+                    } else if (index === 1) {
+                      medal = '🥈';
+                      color = '#C0C0C0';
+                    } else if (index === 2) {
+                      medal = '🥉';
+                      color = '#CD7F32';
+                    }
+
+                    return (
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          marginBottom: 10,
+                          backgroundColor: isCurrentUser
+                            ? 'rgba(255,255,255,0.1)' // Highlight for current user
+                            : 'rgba(255,255,255,0.05)',
+                          borderRadius: 10,
+                          padding: 10,
+                          borderWidth: isCurrentUser ? 1 : 0,
+                          borderColor: isCurrentUser ? '#FFD700' : 'transparent',
+                        }}
+                      >
+                        <Text style={{ fontSize: 18, width: 30, color }}>{medal || index + 1}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              color: isCurrentUser ? '#FFD700' : '#fff',
+                              fontWeight: isCurrentUser ? 'bold' : 'normal',
+                              fontSize: 15,
+                              fontFamily: 'Montserrat-SemiBold',
+                            }}
+                          >
+                            {item.email || 'User'}
+                          </Text>
+                          <Text style={{ color: '#ccc', fontSize: 13 }}>
+                            Points: {item.points} | Completed: {item.completedCount}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  }}
+                  contentContainerStyle={{ paddingBottom: 10 }}
+                  showsVerticalScrollIndicator={true}
+                />
+
+
+                <TouchableOpacity
+                  style={[styles.menuButton, { marginTop: 10 }]}
+                  onPress={() => setLeaderboardVisible(false)}
+                >
+                  <Text style={styles.menuButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
 
 
           {/* Evidence Modal */}
@@ -1191,133 +1208,175 @@ if (dareSnapshot.exists()) {
             </View>
           </Modal>
         </View>
-        
+
         {/* Timed Out Modal */}
-<Modal
-  visible={timedOutModalVisible}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setTimedOutModalVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalContainer}>
-      <Text style={styles.modalTitle}>Timed Out</Text>
-      <Text style={[styles.commentText, { marginBottom: 15 }]}>
-        You can no longer edit this dare because more than 2 minutes have passed.
-      </Text>
-      <TouchableOpacity
-        style={styles.menuButton}
-        onPress={() => setTimedOutModalVisible(false)}
-      >
-        <Text style={styles.menuButtonText}>OK</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+        <Modal
+          visible={timedOutModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setTimedOutModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>Timed Out</Text>
+              <Text style={[styles.commentText, { marginBottom: 15 }]}>
+                You can no longer edit this dare because more than 2 minutes have passed.
+              </Text>
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={() => setTimedOutModalVisible(false)}
+              >
+                <Text style={styles.menuButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
-{/* Confirm Delete Modal */}
-<Modal
-  visible={deleteConfirmVisible}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setDeleteConfirmVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalContainer}>
-      <Text style={styles.modalTitle}>Confirm Delete</Text>
-      <Text style={[styles.commentText, { marginBottom: 15 }]}>
-        Are you sure you want to delete this dare?
-      </Text>
+        {/* Confirm Delete Modal */}
+        <Modal
+          visible={deleteConfirmVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setDeleteConfirmVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>Confirm Delete</Text>
+              <Text style={[styles.commentText, { marginBottom: 15 }]}>
+                Are you sure you want to delete this dare?
+              </Text>
 
-      <TouchableOpacity
-        style={styles.menuButton}
-        onPress={async () => {
-          if (dareIdToDelete) {
-            await remove(ref(db, `dares/${dareIdToDelete}`));
-            setMenuVisible(false);
-          }
-          setDeleteConfirmVisible(false);
-        }}
-      >
-        <Text style={styles.menuButtonText}>Yes, Delete</Text>
-      </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={async () => {
+                  if (dareIdToDelete) {
+                    await remove(ref(db, `dares/${dareIdToDelete}`));
+                    setMenuVisible(false);
+                  }
+                  setDeleteConfirmVisible(false);
+                }}
+              >
+                <Text style={styles.menuButtonText}>Yes, Delete</Text>
+              </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.menuButton, styles.cancelButton]}
-        onPress={() => setDeleteConfirmVisible(false)}
-      >
-        <Text style={styles.menuButtonText}>Cancel</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+              <TouchableOpacity
+                style={[styles.menuButton, styles.cancelButton]}
+                onPress={() => setDeleteConfirmVisible(false)}
+              >
+                <Text style={styles.menuButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
-              
+
+
+
+        <Modal visible={sidebarVisible} transparent animationType="slide" onRequestClose={() => setSidebarVisible(false)}>
+          <View style={{ flex: 1, flexDirection: 'row' }}>
+            <View style={{
+              width: 250,
+              backgroundColor: '#350064',
+              paddingVertical: 40,
+              paddingHorizontal: 20
+            }}>
+              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+                setSidebarVisible(false);
+                routerInstance.push('/profile');
+              }}>
+                <Feather name="user" size={20} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 10 }}>My Profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+                setSidebarVisible(false);
+                setLeaderboardVisible(true);
+              }}>
+                <Feather name="bar-chart" size={20} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 10 }}>Leaderboard</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+                setSidebarVisible(false);
+                routerInstance.push('/my-dares');
+              }}>
+                <Feather name="list" size={20} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 10 }}>My Accepted Dares</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ marginTop: 30 }} onPress={() => {
+                setSidebarVisible(false);
+                handleLogout();
+              }}>
+                <Feather name="log-out" size={20} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 10 }}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={{ flex: 1 }} onPress={() => setSidebarVisible(false)} />
+          </View>
+        </Modal>
 
       </LinearGradient>
       {/* Confirm Accept Modal */}
-<Modal
-  visible={confirmAcceptVisible}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setConfirmAcceptVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalContainer}>
-      <Text style={styles.modalTitle}>Confirm Accept</Text>
-      <Text style={[styles.commentText, { marginBottom: 15 }]}>
-        Are you sure you want to accept this dare?
-      </Text>
-      <TouchableOpacity
-        style={styles.menuButton}
-        onPress={async () => {
-          if (dareIdToConfirm) await handleAcceptDare(dareIdToConfirm);
-          setConfirmAcceptVisible(false);
-        }}
+      <Modal
+        visible={confirmAcceptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmAcceptVisible(false)}
       >
-        <Text style={styles.menuButtonText}>Yes, Accept</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.menuButton, styles.cancelButton]}
-        onPress={() => setConfirmAcceptVisible(false)}
-      >
-        <Text style={styles.menuButtonText}>Cancel</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Confirm Accept</Text>
+            <Text style={[styles.commentText, { marginBottom: 15 }]}>
+              Are you sure you want to accept this dare?
+            </Text>
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={async () => {
+                if (dareIdToConfirm) await handleAcceptDare(dareIdToConfirm);
+                setConfirmAcceptVisible(false);
+              }}
+            >
+              <Text style={styles.menuButtonText}>Yes, Accept</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuButton, styles.cancelButton]}
+              onPress={() => setConfirmAcceptVisible(false)}
+            >
+              <Text style={styles.menuButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
-{/* Confirm Decline Modal */}
-<Modal
-  visible={confirmDeclineVisible}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setConfirmDeclineVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalContainer}>
-      <Text style={styles.modalTitle}>Confirm Decline</Text>
-      <Text style={[styles.commentText, { marginBottom: 15 }]}>
-        Are you sure you want to decline this dare?
-      </Text>
-      <TouchableOpacity
-        style={styles.menuButton}
-        onPress={() => {
-          setConfirmDeclineVisible(false);
-          // Optionally: mark the dare declined for that user or just hide it from UI
-        }}
+      {/* Confirm Decline Modal */}
+      <Modal
+        visible={confirmDeclineVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmDeclineVisible(false)}
       >
-        <Text style={styles.menuButtonText}>Yes, Decline</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.menuButton, styles.cancelButton]}
-        onPress={() => setConfirmDeclineVisible(false)}
-      >
-        <Text style={styles.menuButtonText}>Cancel</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Confirm Decline</Text>
+            <Text style={[styles.commentText, { marginBottom: 15 }]}>
+              Are you sure you want to decline this dare?
+            </Text>
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={() => {
+                setConfirmDeclineVisible(false);
+                // Optionally: mark the dare declined for that user or just hide it from UI
+              }}
+            >
+              <Text style={styles.menuButtonText}>Yes, Decline</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuButton, styles.cancelButton]}
+              onPress={() => setConfirmDeclineVisible(false)}
+            >
+              <Text style={styles.menuButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
     </>
   );
@@ -1748,16 +1807,16 @@ const styles = StyleSheet.create<{
   },
 
   modalTitle: {
-  fontSize: 26,
-  fontWeight: 'bold',
-  textAlign: 'center',
-  color: '#FFD700', // gold
-  marginBottom: 20,
-  textShadowColor: 'rgba(0, 0, 0, 0.7)',
-  textShadowOffset: { width: 1, height: 1 },
-  textShadowRadius: 3,
-  fontFamily: 'Montserrat-SemiBold',
-},
+    fontSize: 26,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#FFD700', // gold
+    marginBottom: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    fontFamily: 'Montserrat-SemiBold',
+  },
 
 
   commentsList: {
@@ -1911,9 +1970,9 @@ const styles = StyleSheet.create<{
   },
 
   commentTime: {
-  fontSize: 11,
-  color: '#aaa',
-  marginTop: 2,
-}
+    fontSize: 11,
+    color: '#aaa',
+    marginTop: 2,
+  }
 
 });
