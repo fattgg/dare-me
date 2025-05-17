@@ -202,21 +202,22 @@ export default function Challenges() {
     }
   }, []);
 
+
   const handleAcceptDare = async (dareId) => {
     try {
       if (!user) return Alert.alert('Error', 'You must be logged in to accept a dare.');
       const dareRef = ref(db, `dares/${dareId}`);
       await update(dareRef, {
-        [`acceptedBy/${user.uid}`]: {
-          acceptedAt: new Date().toISOString(),
-        },
+        status: 'in-progress',
+        acceptedBy: user.uid,
+        acceptedAt: new Date().toISOString(),
       });
-
       Alert.alert('Success', 'Dare accepted!');
     } catch {
       Alert.alert('Error', 'Failed to accept dare.');
     }
   };
+
 
   const handleDeleteDare = async () => {
     try {
@@ -629,7 +630,7 @@ export default function Challenges() {
           {/* Accept/Decline Buttons */}
           {/* Accept/Decline Buttons */}
           {/* Accept/Decline Buttons */}
-          {!isOwner && !item.acceptedBy?.[user?.uid] && (
+          {!isOwner && !item.acceptedBy && !item.declinedBy?.[user?.uid] && item.status !== "in-progress" && item.status !== "completed" && (
             <View
               style={[
                 styles.row,
@@ -1361,10 +1362,19 @@ export default function Challenges() {
             </Text>
             <TouchableOpacity
               style={styles.menuButton}
-              onPress={() => {
+              onPress={async () => {
+                if (!dareIdToConfirm || !user) return;
+                const dare = dares.find((d) => d.id === dareIdToConfirm);
+                await update(ref(db, `dares/${dareIdToConfirm}`), {
+                  declinedBy: {
+                    ...(dare?.declinedBy || {}),
+                    [user.uid]: true,
+                  },
+                  status: "declined"
+                });
                 setConfirmDeclineVisible(false);
-                // Optionally: mark the dare declined for that user or just hide it from UI
               }}
+
             >
               <Text style={styles.menuButtonText}>Yes, Decline</Text>
             </TouchableOpacity>
