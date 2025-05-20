@@ -1,6 +1,7 @@
 // challenges.tsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+
 import {
   View,
   Text,
@@ -29,7 +30,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import Head from 'expo-router/head';
-// ...
 
 
 
@@ -108,9 +108,24 @@ export default function Challenges() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [leaderboardVisible, setLeaderboardVisible] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [likeModalVisible, setLikeModalVisible] = useState(false);
+const [likedUsers, setLikedUsers] = useState<string[]>([]);
+const commentInputRef = useRef<TextInput>(null);
+const flatListRef = useRef<FlatList>(null);
 
 
 
+
+const fetchLikedUsers = async (likedBy: string[]) => {
+  const usersRef = ref(db, 'users');
+  const snapshot = await get(usersRef);
+  if (snapshot.exists()) {
+    const data = snapshot.val();
+    const names = likedBy.map((uid) => data[uid]?.username || data[uid]?.email || 'User');
+    setLikedUsers(names);
+    setLikeModalVisible(true);
+  }
+};
 
 
 
@@ -127,11 +142,12 @@ export default function Challenges() {
       if (snapshot.exists()) {
         const data = snapshot.val();
         const usersArray = Object.entries(data).map(([uid, user]: any) => ({
-          uid,
-          email: user.email,
-          points: user.points || 0,
-          completedCount: Object.values(user?.acceptedDares || {}).filter((d: any) => d.status === 'completed').length || 0,
-        }));
+  uid,
+  name: user.username || user.email || 'User',
+  points: user.points || 0,
+  completedCount: Object.values(user?.acceptedDares || {}).filter((d: any) => d.status === 'completed').length || 0,
+}));
+
 
         const sorted = usersArray.sort((a, b) => b.points - a.points);
         setLeaderboard(sorted);
@@ -139,6 +155,7 @@ export default function Challenges() {
     });
   }, []);
 
+  
 
   useEffect(() => {
     if (!user) return;
@@ -156,6 +173,13 @@ export default function Challenges() {
   useEffect(() => {
     if (fontsLoaded) setIsReady(true);
   }, [fontsLoaded]);
+
+  useEffect(() => {
+  if (replyToId && commentInputRef.current) {
+    commentInputRef.current.focus();
+  }
+}, [replyToId]);
+
 
   useEffect(() => {
     const daresRef = ref(db, 'dares');
@@ -204,19 +228,30 @@ export default function Challenges() {
 
 
   const handleAcceptDare = async (dareId) => {
-    try {
-      if (!user) return Alert.alert('Error', 'You must be logged in to accept a dare.');
-      const dareRef = ref(db, `dares/${dareId}`);
-      await update(dareRef, {
-        status: 'in-progress',
-        acceptedBy: user.uid,
-        acceptedAt: new Date().toISOString(),
-      });
-      Alert.alert('Success', 'Dare accepted!');
-    } catch {
-      Alert.alert('Error', 'Failed to accept dare.');
-    }
-  };
+  try {
+    if (!user) return Alert.alert('Error', 'You must be logged in to accept a dare.');
+
+    const dareRef = ref(db, `dares/${dareId}`);
+    const timestamp = new Date().toISOString();
+
+    await update(dareRef, {
+      status: 'in-progress',
+      acceptedBy: user.uid,
+      acceptedAt: timestamp,
+    });
+
+    // ✅ SHTO KËTË pjesë që ruan accepted dare tek user-i
+    await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
+      status: 'in-progress',
+      acceptedAt: timestamp,
+    });
+
+    Alert.alert('Success', 'Dare accepted!');
+  } catch {
+    Alert.alert('Error', 'Failed to accept dare.');
+  }
+};
+
 
 
   const handleDeleteDare = async () => {
@@ -230,27 +265,41 @@ export default function Challenges() {
   };
 
   const handleLikeDare = async (dareId: string, likedBy: string[] = []) => {
-    try {
-      if (!user) return Alert.alert('Error', 'You must be logged in to like a dare.');
-      const dare = dares.find((d) => d.id === dareId);
-      if (!dare || dare.userId === user.uid) return;
-      const newLiked = likedBy.includes(user.uid)
-        ? likedBy.filter((u) => u !== user.uid)
-        : [...likedBy, user.uid];
-      await update(ref(db, `dares/${dareId}`), { likedBy: newLiked });
-      if (!likedBy.includes(user.uid)) {
-        if (dare.userId && dare.userId !== user.uid) {
-        }
+  try {
+    if (!user) return Alert.alert('Error', 'You must be logged in to like a dare.');
 
-        await sendNotification({
-          type: 'like',
-          dare: { id: dare.id, userId: dare.userId, challenge: dare.challenge },
-        });
-      }
-    } catch {
-      Alert.alert('Error', 'Like failed.');
+    const dare = dares.find((d) => d.id === dareId);
+    if (!dare || !dare.userId) return;
+
+    const isLiking = !likedBy.includes(user.uid);
+    const newLiked = isLiking
+      ? [...likedBy, user.uid]
+      : likedBy.filter((u) => u !== user.uid);
+
+    await update(ref(db, `dares/${dareId}`), { likedBy: newLiked });
+
+    if (isLiking && dare.userId !== user.uid) {
+      await addPointsToUser(dare.userId, 1);
+
+      await sendNotification({
+        type: 'like',
+        dare: {
+          id: dare.id,
+          userId: dare.userId,
+          challenge: dare.challenge,
+        },
+      });
+    } else if (!isLiking && dare.userId !== user.uid) {
+      await addPointsToUser(dare.userId, -1); // remove point on unlike
     }
-  };
+
+  } catch (e) {
+    console.error("Like error:", e);
+    Alert.alert('Error', 'Like failed.');
+  }
+};
+
+
 
   const addPointsToUser = async (userId: string, pointsToAdd: number) => {
     const userRef = ref(db, `users/${userId}/points`);
@@ -298,7 +347,30 @@ export default function Challenges() {
       setReplyToText(null);
       setReplyToId(null);
 
-      if (!replyToId) Alert.alert('Success', 'Comment added!');
+      if (replyToId) {
+  const index = comments.findIndex((c) => c.id === replyToId);
+  if (index !== -1) {
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.5
+      });
+    }, 300);
+  }
+} 
+else {
+  setTimeout(() => {
+    flatListRef.current?.scrollToOffset({
+      offset: Number.MAX_SAFE_INTEGER,
+      animated: true,
+    });
+  }, 300);
+}
+
+
+
+
     } catch {
       Alert.alert('Error', 'Failed to add comment.');
     }
@@ -453,6 +525,12 @@ export default function Challenges() {
 
       await update(ref(db, `dares/${dareId}`), updateData);
       await addPointsToUser(user.uid, 10); // +10 pikë për përfundim
+      // ✅ Përditëso statusin tek users/{uid}/acceptedDares
+await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
+  status: 'completed',
+  completedAt: new Date().toISOString(),
+});
+
 
       // Kontrollo dhe shpërndaj badge
       const userBadgeRef = ref(db, `users/${user.uid}/badges`);
@@ -591,7 +669,24 @@ export default function Challenges() {
                 isSmallScreen && { width: "100%", marginBottom: 5 },
               ]}
             >
-              <Text style={styles.likeCount}>{item.likes} Likes</Text>
+              <TouchableOpacity
+  style={styles.actionButton}
+  onPress={() => fetchLikedUsers(item.likedBy || [])}
+>
+  <Feather
+    name="users"
+    size={16}
+    color="#fff"
+    styles={styles.actionIcon}
+  />
+  <Text style={styles.actionText}>
+    {item.likes} {item.likes === 1 ? 'Like' : 'Likes'}
+  </Text>
+</TouchableOpacity>
+
+
+
+
               {!isOwner && (
                 <TouchableOpacity
                   style={[
@@ -932,42 +1027,103 @@ export default function Challenges() {
                   </TouchableOpacity>
                 </View>
                 <FlatList
-                  data={comments}
-                  keyExtractor={(c) => c.id}
-                  renderItem={({ item }) => (
-                    <View style={styles.commentItem}>
-                      <Text style={styles.commentAuthor}>{item.username}:</Text>
-                      <Text style={styles.commentText}>{item.text}</Text>
-                      <Text style={styles.commentTime}>{new Date(item.timestamp).toLocaleString()}</Text>
+  ref={flatListRef}
+  data={comments}
+  keyExtractor={(c) => c.id}
+  renderItem={({ item }) => (
+    <View style={styles.commentItem}>
+      <Text style={styles.commentAuthor}>{item.username}:</Text>
+      <Text style={styles.commentText}>{item.text}</Text>
+      <Text style={styles.commentTime}>{new Date(item.timestamp).toLocaleString()}</Text>
 
-                      <TouchableOpacity onPress={() => {
-                        setReplyToId(item.id);
-                        setReplyToText(item.text);
-                      }}>
-                        <Text style={{ color: '#ccc', fontSize: 13 }}>Reply</Text>
-                      </TouchableOpacity>
+      <TouchableOpacity onPress={() => {
+        setReplyToId(item.id);
+        setReplyToText(item.text);
+      }}>
+        <Text style={{ color: '#ccc', fontSize: 13 }}>Reply</Text>
+      </TouchableOpacity>
 
-                      {replies[item.id]?.map((reply) => (
-                        <View key={reply.id} style={{ marginLeft: 20, marginTop: 5 }}>
-                          <Text style={styles.commentAuthor}>{reply.username}:</Text>
-                          <Text style={styles.commentText}>{reply.text}</Text>
-                          <Text style={styles.commentTime}>{new Date(reply.timestamp).toLocaleString()}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                  contentContainerStyle={styles.commentsList}
-                />
+      {replies[item.id]?.map((reply) => (
+        <View key={reply.id} style={{ marginLeft: 20, marginTop: 5 }}>
+          <Text style={styles.commentAuthor}>{reply.username}:</Text>
+          <Text style={styles.commentText}>{reply.text}</Text>
+          <Text style={styles.commentTime}>{new Date(reply.timestamp).toLocaleString()}</Text>
+        </View>
+      ))}
+    </View>
+  )}
+  contentContainerStyle={styles.commentsList}
+  style={{ maxHeight: 300 }}
+  showsVerticalScrollIndicator={true}
+  getItemLayout={(data, index) => ({
+    length: 85, // përafërsisht lartësia e një komenti me mundësi reply
+    offset: 85 * index,
+    index,
+  })}
+  onScrollToIndexFailed={(info) => {
+    setTimeout(() => {
+      flatListRef.current?.scrollToOffset({
+        offset: info.averageItemLength * info.index,
+        animated: true,
+      });
+    }, 300);
+  }}
+/>
+
 
 
 
                 <View style={styles.commentInputContainer}>
-                  <TextInput style={styles.input}
-                    placeholder="Add a comment..."
-                    placeholderTextColor="#ccc"
-                    value={newComment}
-                    onChangeText={setNewComment}
-                  />
+                  <TextInput
+  ref={commentInputRef}
+  style={[styles.input, { minHeight: 45, textAlignVertical: 'top' }]}
+  placeholder="Add a comment..."
+  placeholderTextColor="#ccc"
+  value={newComment}
+  onChangeText={setNewComment}
+  multiline
+  onKeyPress={({ nativeEvent }) => {
+    if (nativeEvent.key === 'Enter' && !nativeEvent.shiftKey) {
+      // Parandalon rreshtin e ri me Enter vetëm (pa Shift)
+      nativeEvent.preventDefault?.();
+      handleAddComment();
+    }
+  }}
+/>
+
+
+{replyToId && (
+  <TouchableOpacity
+  onPress={() => {
+    setReplyToId(null);
+    setReplyToText(null);
+  }}
+  style={{
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  }}
+>
+  <Text
+    style={{
+      color: '#CCCCFF', // një nuancë e lehtë blu-violet
+      fontFamily: 'Montserrat-SemiBold',
+      fontSize: 14,
+    }}
+  >
+     Cancel Reply
+  </Text>
+</TouchableOpacity>
+
+)}
+
                   <TouchableOpacity style={styles.addCommentButton} onPress={handleAddComment}>
                     <Feather name="send"
                       size={20}
@@ -1104,15 +1260,16 @@ export default function Challenges() {
                         <Text style={{ fontSize: 18, width: 30, color }}>{medal || index + 1}</Text>
                         <View style={{ flex: 1 }}>
                           <Text
-                            style={{
-                              color: isCurrentUser ? '#FFD700' : '#fff',
-                              fontWeight: isCurrentUser ? 'bold' : 'normal',
-                              fontSize: 15,
-                              fontFamily: 'Montserrat-SemiBold',
-                            }}
-                          >
-                            {item.email || 'User'}
-                          </Text>
+  style={{
+    color: isCurrentUser ? '#FFD700' : '#fff',
+    fontWeight: isCurrentUser ? 'bold' : 'normal',
+    fontSize: 15,
+    fontFamily: 'Montserrat-SemiBold',
+  }}
+>
+  {item.name}
+</Text>
+
                           <Text style={{ color: '#ccc', fontSize: 13 }}>
                             Points: {item.points} | Completed: {item.completedCount}
                           </Text>
@@ -1232,6 +1389,44 @@ export default function Challenges() {
             </View>
           </View>
         </Modal>
+        <Modal
+  visible={likeModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setLikeModalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={[styles.modalContainer, { maxHeight: 400 }]}>
+      <Text style={styles.modalTitle}>👍 Liked By</Text>
+
+      <FlatList
+        data={likedUsers}
+        keyExtractor={(item, index) => index.toString()}
+        style={{ marginBottom: 10 }}
+        contentContainerStyle={{ paddingVertical: 5 }}
+        renderItem={({ item }) => (
+          <Text style={{
+            fontSize: 17,
+            color: '#fff',
+            fontFamily: 'Montserrat-SemiBold',
+            marginBottom: 10
+          }}>
+            • {item}
+          </Text>
+        )}
+      />
+
+      <TouchableOpacity
+        style={styles.menuButton}
+        onPress={() => setLikeModalVisible(false)}
+      >
+        <Text style={styles.menuButtonText}>Close</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+
 
         {/* Confirm Delete Modal */}
         <Modal
@@ -1803,6 +1998,7 @@ const styles = StyleSheet.create<{
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     ...(isWeb ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {})
+    
   },
 
 
