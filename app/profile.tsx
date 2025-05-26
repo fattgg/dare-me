@@ -45,7 +45,10 @@ export default function Profile() {
       const all = snap.val() || {};
 
       const completed = Object.keys(all)
-        .filter((key) => all[key].acceptedBy?.[userId] && all[key].status === 'completed')
+        .filter((key) =>
+          (all[key].acceptedBy === userId || all[key].acceptedBy?.[userId]) &&
+          all[key].status === 'completed'
+        )
         .map((key) => ({ id: key, ...all[key] }));
 
       const posted = Object.keys(all)
@@ -53,7 +56,9 @@ export default function Profile() {
         .map((key) => ({ id: key, ...all[key] }));
 
       const accepted = Object.keys(all)
-        .filter((key) => all[key].acceptedBy?.[userId])
+        .filter((key) =>
+          all[key].acceptedBy === userId || all[key].acceptedBy?.[userId]
+        )
         .map((key) => ({ id: key, ...all[key] }));
 
       const declined = Object.keys(all)

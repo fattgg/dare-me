@@ -640,11 +640,47 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
           </View>
           <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
           <Text style={styles.dareText}>Reward: {item.reward}</Text>
-          <TouchableOpacity onPress={() => routerInstance.push(`/profile?uid=${item.userId}`)}>
-            <Text style={[styles.dareText, { textDecorationLine: 'underline', color: '#B788C4' }]}>
-              Posted by: {item.username || 'Anonymous'}
-            </Text>
-          </TouchableOpacity>
+          <View style={{
+  marginTop: 10,
+  padding: 10,
+  borderRadius: 10,
+  backgroundColor: 'rgba(255,255,255,0.04)',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.08)'
+}}>
+  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+    <Feather name="user" size={16} color="#ccc" style={{ marginRight: 6 }} />
+    <Text style={styles.statusText}>
+  Posted by: <Text style={{ color: '#fff' }}>{item.username || 'Anonymous'}</Text>
+</Text>
+
+  </View>
+
+  {item.userId !== user?.uid && (
+  <TouchableOpacity
+    onPress={() => routerInstance.push(`/profile?uid=${item.userId}`)}
+    style={{
+      alignSelf: 'flex-start',
+      backgroundColor: '#5A189A',
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+    }}
+  >
+    <Feather name="arrow-right" size={14} color="#fff" style={{ marginRight: 6 }} />
+    <Text style={{ color: '#fff', fontFamily: 'Montserrat-SemiBold', fontSize: 12 }}>
+      View Profile
+    </Text>
+  </TouchableOpacity>
+)}
+
+</View>
+
+
+
+
 
           <Text style={styles.statusText}>
             Status:{" "}
@@ -946,9 +982,35 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
               color="#fff"
             />
             <Text style={styles.title}>Available Dares</Text>
-            <Text style={{ color: '#fff', marginTop: 5, fontFamily: 'Montserrat-SemiBold' }}>
-              Your Points: {points}
-            </Text>
+           <View style={{
+  marginTop: 20,
+  marginBottom: 20,
+  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  paddingVertical: 10,
+  paddingHorizontal: 16,
+  borderRadius: 14,
+  borderWidth: 1,
+  borderColor: 'rgba(255, 255, 255, 0.15)',
+  flexDirection: 'row',
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.3,
+  shadowRadius: 6,
+}}>
+  <Feather name="star" size={20} color="#FFD700" style={{ marginRight: 10 }} />
+  <Text style={{
+    color: '#FFD700',
+    fontSize: 16,
+    fontFamily: 'Montserrat-SemiBold',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  }}>
+    Your Points: {points}
+  </Text>
+</View>
+
             {badges.length > 0 && (
               <Text style={{ color: '#fff', fontStyle: 'italic', marginTop: 5 }}>
                 🏅 Badges: {badges.join(', ')}
