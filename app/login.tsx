@@ -1,6 +1,3 @@
-
-// login.tsx
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,7 +5,6 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Platform,
   Text as RNText,
   TextInput as RNTextInput,
@@ -29,7 +25,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import Head from "expo-router/head";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
 
 const isWeb = Platform.OS === "web";
 
@@ -41,10 +36,12 @@ export default function Login() {
     "Montserrat-ExtraLightItalic": require("../assets/fonts/static/Montserrat-ExtraLightItalic.ttf"),
   });
 
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
-  const [hovered, setHovered] = useState<boolean>(false); // 👈 për hover efekt
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   const [request, response, promptAsync] = useIdTokenAuthRequest({
     clientId: "YOUR_GOOGLE_CLIENT_ID",
@@ -67,11 +64,10 @@ export default function Login() {
       setLoading(true);
       signInWithCredential(auth, credential)
         .then(() => {
-          Alert.alert("Success", "Logged in with Google!");
           router.replace("../challenges");
         })
         .catch((error: AuthError) => {
-          Alert.alert("Error", error.message);
+          console.error("Google login error:", error);
         })
         .finally(() => {
           setLoading(false);
@@ -80,8 +76,18 @@ export default function Login() {
   }, [response]);
 
   const handleLogin = async (): Promise<void> => {
-    if (!email || !password) {
-      Alert.alert("Validation Error", "Please enter both email and password.");
+    setEmailError("");
+    setPasswordError("");
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+
+    if (password.trim().length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
       return;
     }
 
@@ -92,11 +98,16 @@ export default function Login() {
         email,
         password
       );
-      Alert.alert("Login Successful", `Welcome back, ${userCredential.user.email}!`);
       router.replace("../challenges");
     } catch (error: any) {
-      const errorMessage = error?.message || "An unknown error occurred";
-      Alert.alert("Login Failed", errorMessage);
+      const errorCode = error?.code;
+      if (errorCode === "auth/user-not-found") {
+        setEmailError("Email not found.");
+      } else if (errorCode === "auth/wrong-password") {
+        setPasswordError("Incorrect password.");
+      } else {
+        setPasswordError("Login failed. Try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -115,7 +126,7 @@ export default function Login() {
       <LinearGradient
         colors={["#4B0082", "#B788C4"]}
         style={[styles.gradient, styles.loadingContainer]}
-  ></LinearGradient>
+      />
     );
   }
 
@@ -141,28 +152,38 @@ export default function Login() {
               <RNText style={styles.label}>Email</RNText>
               <RNTextInput
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setEmailError("");
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 placeholder="Enter your email"
                 placeholderTextColor="#ccc"
-                style={[styles.input, { fontFamily: email ? "Montserrat-SemiBold" : "Montserrat-SemiBoldItalic" }]}
+                style={[styles.input]}
                 editable={!loading}
               />
+              {emailError ? <RNText style={styles.errorText}>{emailError}</RNText> : null}
             </View>
 
             <View style={styles.inputContainer}>
               <RNText style={styles.label}>Password</RNText>
               <RNTextInput
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setPasswordError("");
+                }}
                 secureTextEntry
                 autoCorrect={false}
                 placeholder="Enter your password"
                 placeholderTextColor="#ccc"
-                style={[styles.input, { fontFamily: password ? "Montserrat-SemiBold" : "Montserrat-SemiBoldItalic" }]}
+                style={[styles.input]}
                 editable={!loading}
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
               />
+              {passwordError ? <RNText style={styles.errorText}>{passwordError}</RNText> : null}
             </View>
 
             <TouchableOpacity onPress={handleForgotPassword} disabled={loading}>
@@ -196,18 +217,28 @@ export default function Login() {
             <View style={styles.createAccountLink}>
               <RNText style={styles.createAccountText}>
                 Don’t have an account?{" "}
-                <RNText
-                  onPress={handleSignUp}
-                  onMouseEnter={() => setHovered(true)}
-                  onMouseLeave={() => setHovered(false)}
-                  disabled={loading}
-                  style={[
-                    styles.signUpText,
-                    isWeb && hovered && styles.signUpTextHovered
-                  ]}
-                >
-                  Sign up
-                </RNText>
+                {isWeb ? (
+                  <RNText
+                    onPress={handleSignUp}
+                    onMouseEnter={() => setHovered(true)}
+                    onMouseLeave={() => setHovered(false)}
+                    disabled={loading}
+                    style={[
+                      styles.signUpText,
+                      hovered && styles.signUpTextHovered,
+                    ]}
+                  >
+                    Sign up
+                  </RNText>
+                ) : (
+                  <RNText
+                    onPress={handleSignUp}
+                    disabled={loading}
+                    style={styles.signUpText}
+                  >
+                    Sign up
+                  </RNText>
+                )}
               </RNText>
             </View>
           </View>
@@ -226,9 +257,7 @@ export const screenOptions = {
 };
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
+  gradient: { flex: 1 },
   container: {
     flex: 1,
     justifyContent: "center",
@@ -241,14 +270,12 @@ const styles = StyleSheet.create({
     padding: 25,
     borderRadius: 22,
     backgroundColor: "rgba(255, 255, 255, 0.01)",
-    boxSizing: "border-box",
     ...(isWeb && {
       backdropFilter: "blur(16px)",
       WebkitBackdropFilter: "blur(16px)",
       boxShadow: "0 16px 64px rgba(0, 0, 0, 0.80)",
     }),
     ...(!isWeb && {
-      boxShadow: "0 16px 64px rgba(0, 0, 0, 0.50)",
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.3,
@@ -258,9 +285,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.07)",
   },
-  inputContainer: {
-    marginBottom: 15,
-  },
+  inputContainer: { marginBottom: 15 },
   label: {
     color: "white",
     marginBottom: 5,
@@ -272,7 +297,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 14,
     color: "#fff",
-    opacity: 0.7,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.6)",
   },
@@ -285,6 +309,12 @@ const styles = StyleSheet.create({
     marginTop: 5,
     color: "#fff",
   },
+  errorText: {
+    color: "#ffcccc",
+    fontStyle: "italic",
+    marginTop: 4,
+    fontSize: 13,
+  },
   forgotPassword: {
     fontFamily: "Montserrat-ExtraLightItalic",
     textAlign: "right",
@@ -293,7 +323,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   buttonLabel: {
-    color:"#fff",
+    color: "#fff",
     fontFamily: "Montserrat-SemiBold",
     fontSize: 15,
   },
@@ -314,24 +344,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 10,
   },
-  googleIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 10,
-  },
+  googleIcon: { width: 20, height: 20, marginRight: 10 },
   googleButtonText: {
     fontFamily: "Montserrat-SemiBold",
     fontSize: 14,
     color: "#fff",
   },
-  iconContainer: {
-    alignItems: "center",
-    marginBottom: 30,
-  },
-  createAccountLink: {
-    marginTop: 15,
-    alignSelf: "center",
-  },
+  iconContainer: { alignItems: "center", marginBottom: 30 },
+  createAccountLink: { marginTop: 15, alignSelf: "center" },
   createAccountText: {
     color: "#fff",
     fontSize: 15,
@@ -353,9 +373,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  loadingText: {
-    color: "white",
-    fontSize: 18,
-    fontFamily: "Montserrat-SemiBold",
-  },
 });
+
+
