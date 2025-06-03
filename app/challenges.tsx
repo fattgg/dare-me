@@ -106,6 +106,7 @@ export default function Challenges() {
   const [points, setPoints] = useState(0);
   const [badges, setBadges] = useState<string[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [leaderboardSearch, setLeaderboardSearch] = useState('');
   const [leaderboardVisible, setLeaderboardVisible] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [likeModalVisible, setLikeModalVisible] = useState(false);
@@ -186,12 +187,16 @@ const fetchLikedUsers = async (likedBy: string[]) => {
     const unsubscribe = onValue(daresRef, (snap) => {
       const data = snap.val();
       if (data) {
-        const arr = Object.keys(data).map((key) => ({
-          id: key,
-          ...data[key],
-          likes: data[key].likedBy ? data[key].likedBy.length : 0,
-        }));
-        setDares(arr);
+        const arr = Object.keys(data)
+  .map((key) => ({
+    id: key,
+    ...data[key],
+    likes: data[key].likedBy ? data[key].likedBy.length : 0,
+  }))
+  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+setDares(arr);
+
       }
     });
 
@@ -235,10 +240,13 @@ const fetchLikedUsers = async (likedBy: string[]) => {
     const timestamp = new Date().toISOString();
 
     await update(dareRef, {
-      status: 'in-progress',
-      acceptedBy: user.uid,
-      acceptedAt: timestamp,
-    });
+  status: 'in-progress',
+  acceptedBy: {
+    [user.uid]: true,
+  },
+  acceptedAt: timestamp,
+});
+
 
     // ✅ SHTO KËTË pjesë që ruan accepted dare tek user-i
     await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
@@ -281,14 +289,18 @@ const fetchLikedUsers = async (likedBy: string[]) => {
     if (isLiking && dare.userId !== user.uid) {
       await addPointsToUser(dare.userId, 1);
 
-      await sendNotification({
-        type: 'like',
-        dare: {
-          id: dare.id,
-          userId: dare.userId,
-          challenge: dare.challenge,
-        },
-      });
+      await push(ref(db, "notifications"), {
+  type: "like",
+  dareId: dare.id,
+  userId: dare.userId,
+  dare: {
+    id: dare.id,
+    challenge: dare.challenge,
+  },
+  likerName: user.email || user.uid,
+  timestamp: Date.now(),
+});
+
     } else if (!isLiking && dare.userId !== user.uid) {
       await addPointsToUser(dare.userId, -1); // remove point on unlike
     }
@@ -311,13 +323,40 @@ const fetchLikedUsers = async (likedBy: string[]) => {
   };
 
 
+
   const openComments = (dareId) => {
     setSelectedDare(dareId);
     setModalVisible(true);
     onValue(ref(db, `dares/${dareId}/comments`), (snap) => {
-      const data = snap.val();
-      setComments(data ? Object.keys(data).map((k) => ({ id: k, ...data[k] })) : []);
-    });
+  const data = snap.val();
+  if (!data) {
+    setComments([]);
+    setReplies({});
+    return;
+  }
+
+  const commentsArray: Comment[] = [];
+  const repliesMap: { [commentId: string]: Comment[] } = {};
+
+  Object.entries(data).forEach(([commentId, commentData]: any) => {
+    const { replies, ...mainComment } = commentData;
+
+    commentsArray.push({ id: commentId, ...mainComment });
+
+    // ✅ ruan replies në state që të shfaqen në UI
+    if (replies) {
+      repliesMap[commentId] = Object.entries(replies).map(([rid, replyData]: any) => ({
+        id: rid,
+        ...replyData,
+      }));
+    }
+  });
+
+  setComments(commentsArray);
+  setReplies(repliesMap); // <-- kjo mungonte më parë
+});
+
+
   };
 
   const handleAddComment = async () => {
@@ -335,13 +374,11 @@ const fetchLikedUsers = async (likedBy: string[]) => {
       };
 
       if (replyToId) {
-        setReplies((prev) => ({
-          ...prev,
-          [replyToId]: [...(prev[replyToId] || []), commentData],
-        }));
-      } else {
-        await push(ref(db, `dares/${selectedDare}/comments`), commentData);
-      }
+  await push(ref(db, `dares/${selectedDare}/comments/${replyToId}/replies`), commentData);
+} else {
+  await push(ref(db, `dares/${selectedDare}/comments`), commentData);
+}
+
 
       setNewComment('');
       setReplyToText(null);
@@ -1062,13 +1099,16 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
 
 
 
+<FlatList
+  data={dares.filter(
+    (d) =>
+      // filtrimi i kërkimit
+      (d.challenge.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (d.username || '').toLowerCase().includes(searchQuery.toLowerCase())) &&
+      // përjashto nëse është refuzuar nga ky përdorues
+      !(d.declinedBy && d.declinedBy[user?.uid])
+  )}
 
-          <FlatList
-            data={dares.filter(
-              (d) =>
-                d.challenge.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (d.username || '').toLowerCase().includes(searchQuery.toLowerCase())
-            )}
             keyExtractor={(i) => i.id}
             renderItem={renderDare}
             contentContainerStyle={styles.list}
@@ -1282,66 +1322,78 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                     See who's leading the dare challenge!
                   </Text>
                 </View>
+                <TextInput
+  placeholder="Search users..."
+  placeholderTextColor="#ccc"
+  value={leaderboardSearch}
+  onChangeText={setLeaderboardSearch}
+  style={[styles.input, { marginBottom: 15 }]}
+/>
 
 
                 <FlatList
-                  data={leaderboard}
-                  keyExtractor={(item) => item.uid}
-                  renderItem={({ item, index }) => {
-                    const isCurrentUser = item.uid === user?.uid;
+  data={leaderboard
+    .map((item, i) => ({ ...item, realIndex: i })) // ruan vendin origjinal
+    .filter((item) =>
+      item.name.toLowerCase().includes(leaderboardSearch.toLowerCase())
+    )
+  }
+  keyExtractor={(item) => item.uid}
+  renderItem={({ item }) => {
+    const isCurrentUser = item.uid === user?.uid;
 
-                    let medal = '';
-                    let color = '#fff';
+    let medal = '';
+    let color = '#fff';
 
-                    if (index === 0) {
-                      medal = '🥇';
-                      color = '#FFD700';
-                    } else if (index === 1) {
-                      medal = '🥈';
-                      color = '#C0C0C0';
-                    } else if (index === 2) {
-                      medal = '🥉';
-                      color = '#CD7F32';
-                    }
+    if (item.realIndex === 0) {
+      medal = '🥇';
+      color = '#FFD700';
+    } else if (item.realIndex === 1) {
+      medal = '🥈';
+      color = '#C0C0C0';
+    } else if (item.realIndex === 2) {
+      medal = '🥉';
+      color = '#CD7F32';
+    }
 
-                    return (
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          marginBottom: 10,
-                          backgroundColor: isCurrentUser
-                            ? 'rgba(255,255,255,0.1)' // Highlight for current user
-                            : 'rgba(255,255,255,0.05)',
-                          borderRadius: 10,
-                          padding: 10,
-                          borderWidth: isCurrentUser ? 1 : 0,
-                          borderColor: isCurrentUser ? '#FFD700' : 'transparent',
-                        }}
-                      >
-                        <Text style={{ fontSize: 18, width: 30, color }}>{medal || index + 1}</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text
-  style={{
-    color: isCurrentUser ? '#FFD700' : '#fff',
-    fontWeight: isCurrentUser ? 'bold' : 'normal',
-    fontSize: 15,
-    fontFamily: 'Montserrat-SemiBold',
+    return (
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: 10,
+          backgroundColor: isCurrentUser
+            ? 'rgba(255,255,255,0.1)'
+            : 'rgba(255,255,255,0.05)',
+          borderRadius: 10,
+          padding: 10,
+          borderWidth: isCurrentUser ? 1 : 0,
+          borderColor: isCurrentUser ? '#FFD700' : 'transparent',
+        }}
+      >
+        <Text style={{ fontSize: 18, width: 30, color }}>
+          {medal || item.realIndex + 1}
+        </Text>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              color: isCurrentUser ? '#FFD700' : '#fff',
+              fontWeight: isCurrentUser ? 'bold' : 'normal',
+              fontSize: 15,
+              fontFamily: 'Montserrat-SemiBold',
+            }}
+          >
+            {item.name}
+          </Text>
+          <Text style={{ color: '#ccc', fontSize: 13 }}>
+            Points: {item.points} | Completed: {item.completedCount}
+          </Text>
+        </View>
+      </View>
+    );
   }}
->
-  {item.name}
-</Text>
+/>
 
-                          <Text style={{ color: '#ccc', fontSize: 13 }}>
-                            Points: {item.points} | Completed: {item.completedCount}
-                          </Text>
-                        </View>
-                      </View>
-                    );
-                  }}
-                  contentContainerStyle={{ paddingBottom: 10 }}
-                  showsVerticalScrollIndicator={true}
-                />
 
 
                 <TouchableOpacity
@@ -1563,6 +1615,14 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                 setSidebarVisible(false);
                 handleLogout();
               }}>
+                <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+  setSidebarVisible(false);
+  routerInstance.push('/declined');
+}}>
+  <Feather name="slash" size={20} color="#fff" />
+  <Text style={{ color: '#fff', marginLeft: 10 }}>Declined Dares</Text>
+</TouchableOpacity>
+
                 <Feather name="log-out" size={20} color="#fff" />
                 <Text style={{ color: '#fff', marginLeft: 10 }}>Logout</Text>
               </TouchableOpacity>
@@ -1982,11 +2042,18 @@ const styles = StyleSheet.create<{
   },
 
   completedText: {
-    marginTop: 8,
-    fontStyle: 'italic',
-    color: '#4CAF50',
-    fontFamily: 'Montserrat-ExtraLightItalic'
-  },
+  marginTop: 8,
+  fontStyle: 'italic',
+  color: '#4AC29A',
+  fontFamily: 'Montserrat-SemiBold',
+  fontWeight: '700',
+  fontSize: 16,
+  textShadowColor: 'rgba(74, 194, 154, 0.6)',
+  textShadowOffset: { width: 1, height: 1 },
+  textShadowRadius: 3,
+},
+
+
 
   expiresText: {
     marginTop: 8,
