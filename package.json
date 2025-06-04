@@ -25,7 +25,7 @@
     "@react-navigation/material-top-tabs": "^7.2.10",
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/stack": "^7.2.10",
-    "expo": "^53.0.9",
+    "expo": "^53.0.0",
     "expo-auth-session": "~6.1.5",
     "expo-av": "~15.1.4",
     "expo-blur": "~14.1.4",
