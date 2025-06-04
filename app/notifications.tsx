@@ -96,30 +96,36 @@ export default function Notifications() {
     }
   }, [fontsLoaded])
 
-  useEffect(() => {
-    if (!user) return
+ useEffect(() => {
+  if (!user) return
 
-    const daresRef = ref(db, "/dares")
-    onValue(daresRef, (snapshot) => {
-      const data = snapshot.val() || {}
-      const ids = Object.entries(data)
-        .filter(([_, dare]: any) => dare.userId === user.uid)
-        .map(([id]) => id)
-      setMyDareIds(ids)
-    })
+  const daresRef = ref(db, "/dares")
+  onValue(daresRef, (snapshot) => {
+    const data = snapshot.val() || {}
+    const ids = Object.entries(data)
+      .filter(([_, dare]: any) => dare.userId === user.uid)
+      .map(([id]) => id)
+    setMyDareIds(ids)
+  })
+}, [user])
 
-    const notificationsRef = ref(db, "/notifications")
-    const unsubscribe = onValue(notificationsRef, (snapshot) => {
-      const data = snapshot.val() || {}
-      const filtered = Object.values(data)
-        .filter((notif: any) => notif.dareId && myDareIds.includes(notif.dareId))
-        .sort((a: any, b: any) => b.timestamp - a.timestamp) // Sort by newest first
-      setNotifications(filtered)
-      setIsLoading(false)
-    })
 
-    return () => unsubscribe()
-  }, [user, myDareIds.length])
+    useEffect(() => {
+  if (myDareIds.length === 0) return
+
+  const notificationsRef = ref(db, "/notifications")
+  const unsubscribe = onValue(notificationsRef, (snapshot) => {
+    const data = snapshot.val() || {}
+    const filtered = Object.values(data)
+      .filter((notif: any) => notif.dareId && myDareIds.includes(notif.dareId))
+      .sort((a: any, b: any) => b.timestamp - a.timestamp)
+    setNotifications(filtered)
+    setIsLoading(false)
+  })
+
+  return () => unsubscribe()
+}, [myDareIds])
+
 
   const getIconForType = (type: string) => {
     switch (type) {
