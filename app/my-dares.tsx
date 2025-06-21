@@ -24,6 +24,7 @@ import { useFonts } from "expo-font"
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window")
 
+
 type Dare = {
   id: string
   challenge: string
@@ -50,6 +51,9 @@ export default function MyDares() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "in-progress" | "completed">("all")
   const [isReady, setIsReady] = useState(false)
+  const [returnModalVisible, setReturnModalVisible] = useState(false);
+const [dareToReturn, setDareToReturn] = useState<string | null>(null);
+
 
   const router = useRouter()
 
