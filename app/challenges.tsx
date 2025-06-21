@@ -16,7 +16,6 @@ import {
   Image,
   type ViewStyle,
   type TextStyle,
-  Animated,
 } from "react-native"
 import { auth, db } from "../firebaseConfig"
 import { ref, onValue, update, remove, push, get } from "firebase/database"
@@ -110,10 +109,6 @@ export default function Challenges() {
   const [likedUsers, setLikedUsers] = useState<string[]>([])
   const commentInputRef = useRef<TextInput>(null)
   const flatListRef = useRef<FlatList>(null)
-
-  // Animation values for hamburger menu
-  const [hamburgerAnimation] = useState(new Animated.Value(0))
-  const [menuPulse] = useState(new Animated.Value(1))
 
   const fetchLikedUsers = async (likedBy: string[]) => {
     const usersRef = ref(db, "users")
@@ -214,43 +209,6 @@ export default function Challenges() {
     }
   }, [])
 
-  // Hamburger menu animation effects
-  useEffect(() => {
-    if (sidebarVisible) {
-      Animated.timing(hamburgerAnimation, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start()
-    } else {
-      Animated.timing(hamburgerAnimation, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start()
-    }
-  }, [sidebarVisible])
-
-  // Pulse animation for menu button
-  useEffect(() => {
-    const pulseAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(menuPulse, {
-          toValue: 1.1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(menuPulse, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ]),
-    )
-    pulseAnimation.start()
-    return () => pulseAnimation.stop()
-  }, [])
-
   const handleAcceptDare = async (dareId) => {
     try {
       if (!user) return Alert.alert("Error", "You must be logged in to accept a dare.")
@@ -343,7 +301,7 @@ export default function Challenges() {
       if (!user) return Alert.alert("Error", "You must be logged in to comment.")
 
       const commentData: Comment = {
-        id: Date.now().toString(), // ID për UI
+        id: Date.now().toString(),
         userId: user.uid,
         username: user.email || "Anonymous",
         text: newComment,
@@ -439,7 +397,6 @@ export default function Challenges() {
     }
   }
 
-  // --- Combined Evidence Upload ---
   const handleUploadEvidence = async (dareId) => {
     try {
       setIsLoading(true)
@@ -461,6 +418,7 @@ export default function Challenges() {
         setIsLoading(false)
         return
       }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: true,
@@ -607,25 +565,18 @@ export default function Challenges() {
     setEvidenceModalVisible(true)
   }
 
-  const handleMarkAsCompleted = async (dareId) => {
+  const handleLogout = async () => {
     try {
-      await update(ref(db, `dares/${dareId}`), {
-        status: "completed",
-        completedAt: new Date().toISOString(),
-      })
-      Alert.alert("Success", "Dare marked as completed!")
+      if (isWeb) {
+        const { signOut } = require("firebase/auth")
+        await signOut(auth)
+      } else {
+        await auth.signOut()
+      }
+      routerInstance.replace("/login")
     } catch {
-      Alert.alert("Error", "Failed to mark dare as completed.")
+      Alert.alert("Error", "Logout failed.")
     }
-  }
-
-  // Enhanced hamburger menu press handler with haptic feedback
-  const handleHamburgerPress = () => {
-    // Add haptic feedback for better UX (if available)
-    if (Platform.OS === "ios") {
-      // You can add haptic feedback here if needed
-    }
-    setSidebarVisible(true)
   }
 
   // --- Render each dare (styled like file2) ---
@@ -699,7 +650,7 @@ export default function Challenges() {
             {/* Like and Comments Buttons */}
             <View style={[styles.likeContainer, isSmallScreen && { width: "100%", marginBottom: 5 }]}>
               <TouchableOpacity style={styles.actionButton} onPress={() => fetchLikedUsers(item.likedBy || [])}>
-                <Feather name="users" size={16} color="#fff" styles={styles.actionIcon} />
+                <Feather name="users" size={16} color="#fff" style={styles.actionIcon} />
                 <Text style={styles.actionText}>
                   {item.likes} {item.likes === 1 ? "Like" : "Likes"}
                 </Text>
@@ -710,13 +661,13 @@ export default function Challenges() {
                   style={[styles.actionButton, item.likedBy?.includes(user?.uid) && { backgroundColor: "#ff6b6b" }]}
                   onPress={() => handleLikeDare(item.id, item.likedBy || [])}
                 >
-                  <Feather name="thumbs-up" size={16} color="#fff" styles={styles.actionIcon} />
+                  <Feather name="thumbs-up" size={16} color="#fff" style={styles.actionIcon} />
                   <Text style={styles.actionText}>{item.likedBy?.includes(user?.uid) ? "Unlike" : "Like"}</Text>
                 </TouchableOpacity>
               )}
             </View>
             <TouchableOpacity style={styles.actionButton} onPress={() => openComments(item.id)}>
-              <Feather name="message-circle" size={16} color="#fff" styles={styles.actionIcon} />
+              <Feather name="message-circle" size={16} color="#fff" style={styles.actionIcon} />
               <Text style={styles.actionText}>Comments</Text>
             </TouchableOpacity>
           </View>
@@ -737,7 +688,7 @@ export default function Challenges() {
                     setConfirmAcceptVisible(true)
                   }}
                 >
-                  <Feather name="check" size={16} color="#fff" styles={styles.actionIcon} />
+                  <Feather name="check" size={16} color="#fff" style={styles.actionIcon} />
                   <Text style={styles.acceptText}>Accept</Text>
                 </TouchableOpacity>
 
@@ -748,7 +699,7 @@ export default function Challenges() {
                     setConfirmDeclineVisible(true)
                   }}
                 >
-                  <Feather name="x" size={16} color="#fff" styles={styles.actionIcon} />
+                  <Feather name="x" size={16} color="#fff" style={styles.actionIcon} />
                   <Text style={styles.rejectText}>Decline</Text>
                 </TouchableOpacity>
               </View>
@@ -768,81 +719,80 @@ export default function Challenges() {
                 onPress={() => handleUploadEvidence(item.id)}
                 disabled={isLoading}
               >
-                <Feather name="upload" size={16} color="#fff" styles={styles.actionIcon} />
+                <Feather name="upload" size={16} color="#fff" style={styles.actionIcon} />
                 <Text style={styles.uploadButtonText}>Upload Evidence</Text>
               </TouchableOpacity>
             ))}
 
           {/* Evidence Section */}
-          {/* Display Evidence */}
           {item.evidence && (
-            <View style={styles.evidenceContainer}>
-              <Text style={styles.evidenceTitle}>Evidence:</Text>
-
-              {expired ? (
-                <View style={styles.expiredContainer}>
-                  <Text style={styles.expiredText}>Evidence has expired</Text>
+            <View style={styles.evidenceSection}>
+              <LinearGradient
+                colors={["rgba(255,215,0,0.1)", "rgba(255,215,0,0.05)"]}
+                style={styles.evidenceSectionGradient}
+              >
+                <View style={styles.evidenceHeader}>
+                  <LinearGradient colors={["#FFD700", "#FFA000"]} style={styles.iconGradient}>
+                    <Feather name="camera" size={16} color="#1A0033" />
+                  </LinearGradient>
+                  <Text style={styles.evidenceTitle}>Evidence Submitted</Text>
                 </View>
-              ) : item.evidenceType === "video" ? (
-                <View>
-                  <Text style={styles.evidenceText}>Video evidence uploaded</Text>
-                  <TouchableOpacity style={styles.viewButton} onPress={() => viewEvidence(item)} disabled={isLoading}>
-                    <Text style={styles.viewButtonText}>{isLoading ? "Loading..." : "View Video"}</Text>
+
+                {expired ? (
+                  <View style={styles.expiredContainer}>
+                    <Text style={styles.expiredText}>Evidence has expired</Text>
+                  </View>
+                ) : item.evidenceType === "video" ? (
+                  <View>
+                    <Text style={styles.evidenceText}>Video evidence uploaded</Text>
+                    <TouchableOpacity style={styles.viewButton} onPress={() => viewEvidence(item)} disabled={isLoading}>
+                      <Text style={styles.viewButtonText}>{isLoading ? "Loading..." : "View Video"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity onPress={() => viewEvidence(item)} disabled={isLoading}>
+                    {item.evidenceUrl ? (
+                      <>
+                        <Image source={{ uri: item.evidenceUrl }} style={styles.evidenceImage} resizeMode="cover" />
+                        <Text style={styles.viewFullText}>Tap to view full image</Text>
+                      </>
+                    ) : (
+                      <View style={styles.evidenceImagePlaceholder}>
+                        <Text style={styles.viewFullText}>{isLoading ? "Loading..." : "Tap to view evidence"}</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity onPress={() => viewEvidence(item)} disabled={isLoading}>
-                  {item.evidenceUrl ? (
-                    <>
-                      <Image source={{ uri: item.evidenceUrl }} style={styles.evidenceImage} resizeMode="cover" />
-                      <Text style={styles.viewFullText}>Tap to view full image</Text>
-                    </>
-                  ) : (
-                    <View style={styles.evidenceImagePlaceholder}>
-                      <Text style={styles.viewFullText}>{isLoading ? "Loading..." : "Tap to view evidence"}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
+                )}
 
-              {item.evidenceExpires && !expired && (
-                <Text style={styles.expiresText}>
-                  Evidence available until: {new Date(item.evidenceExpires).toLocaleString()}
-                </Text>
-              )}
+                {item.evidenceExpires && !expired && (
+                  <Text style={styles.expiresText}>
+                    Evidence available until: {new Date(item.evidenceExpires).toLocaleString()}
+                  </Text>
+                )}
 
-              {item.completedAt && (
-                <Text style={styles.completedText}>
-                  Completed on: {new Date(item.completedAt).toLocaleDateString()}
-                </Text>
-              )}
+                {item.completedAt && (
+                  <Text style={styles.completedText}>
+                    Completed on: {new Date(item.completedAt).toLocaleDateString()}
+                  </Text>
+                )}
 
-              {item.aiAnalysis && (
-                <View style={styles.aiAnalysisContainer}>
-                  <Text style={styles.aiAnalysisTitle}>AI Analysis:</Text>
-                  <Text>Tags: {item.aiAnalysis.tags?.join(", ") || "No tags available"}</Text>
-                  <Text>Description: {item.aiAnalysis.description || "No description available"}</Text>
-                </View>
-              )}
+                {item.aiAnalysis && (
+                  <View style={styles.aiAnalysisContainer}>
+                    <Text style={styles.aiAnalysisTitle}>AI Analysis:</Text>
+                    <Text style={styles.aiAnalysisText}>
+                      Tags: {item.aiAnalysis.tags?.join(", ") || "No tags available"}
+                    </Text>
+                    <Text style={styles.aiAnalysisText}>
+                      Description: {item.aiAnalysis.description || "No description available"}
+                    </Text>
+                  </View>
+                )}
+              </LinearGradient>
             </View>
           )}
         </View>
       </SwipeableWrapper>
     )
-  }
-
-  const handleLogout = async () => {
-    try {
-      if (isWeb) {
-        const { signOut } = require("firebase/auth")
-        await signOut(auth)
-      } else {
-        await auth.signOut()
-      }
-      routerInstance.replace("/login")
-    } catch {
-      Alert.alert("Error", "Logout failed.")
-    }
   }
 
   // --- Main render ---
@@ -921,40 +871,30 @@ export default function Challenges() {
         <meta name="description" content="Browse and accept dares on DareMe" />
       </Head>
       <LinearGradient colors={["#4B0082", "#B788C4"]} style={styles.gradient}>
-        {/* Enhanced Hamburger Menu Button */}
-        <Animated.View
-          style={[
-            styles.hamburgerContainer,
-            {
-              transform: [{ scale: menuPulse }],
-            },
-          ]}
+        <LinearGradient
+          colors={["#667eea", "#764ba2"]}
+          style={styles.hamburgerMenu}
         >
-          <TouchableOpacity onPress={handleHamburgerPress} style={styles.hamburgerButton} activeOpacity={0.7}>
-            <LinearGradient
-              colors={["rgba(255,255,255,0.15)", "rgba(255,255,255,0.05)"]}
-              style={styles.hamburgerGradient}
-            >
-              <Animated.View
-                style={{
-                  transform: [
-                    {
-                      rotate: hamburgerAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ["0deg", "90deg"],
-                      }),
-                    },
-                  ],
-                }}
-              >
-                <Feather name="menu" size={24} color="#fff" />
-              </Animated.View>
-            </LinearGradient>
-
-            {/* Ripple effect overlay */}
-            <View style={styles.hamburgerRipple} />
+          <TouchableOpacity
+            onPress={() => setSidebarVisible(true)}
+            style={styles.hamburgerButton}
+          >
+            <View style={styles.hamburgerLines}>
+              <LinearGradient
+                colors={["#ffffff", "#f8f9ff"]}
+                style={[styles.hamburgerLine, { width: "100%" }]}
+              />
+              <LinearGradient
+                colors={["#ffffff", "#f8f9ff"]}
+                style={[styles.hamburgerLine, { width: "85%", alignSelf: "flex-end" }]}
+              />
+              <LinearGradient
+                colors={["#ffffff", "#f8f9ff"]}
+                style={[styles.hamburgerLine, { width: "70%", alignSelf: "flex-end" }]}
+              />
+            </View>
           </TouchableOpacity>
-        </Animated.View>
+        </LinearGradient>
 
         <View style={styles.container}>
           <View style={styles.headerContainer}>
@@ -1010,12 +950,12 @@ export default function Challenges() {
               style={[styles.mainButton, isSmallScreen && { width: "100%" }]}
               onPress={() => routerInstance.push("/create-dare")}
             >
-              <Feather name="plus-circle" size={18} color="#fff" styles={styles.buttonIcon} />
+              <Feather name="plus-circle" size={18} color="#fff" style={styles.buttonIcon} />
               <Text style={styles.buttonText}>Post a Dare</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.mainButton} onPress={() => routerInstance.push("/notifications")}>
-              <Feather name="bell" size={18} color="#fff" styles={styles.buttonIcon} />
+              <Feather name="bell" size={18} color="#fff" style={styles.buttonIcon} />
               <Text style={styles.buttonText}>Notifications</Text>
             </TouchableOpacity>
           </View>
@@ -1041,6 +981,7 @@ export default function Challenges() {
                     <Feather name="x" size={24} color="#fff" />
                   </TouchableOpacity>
                 </View>
+
                 <FlatList
                   ref={flatListRef}
                   data={comments}
@@ -1179,7 +1120,7 @@ export default function Challenges() {
                   <>
                     <Text style={styles.menuTitle}>Options</Text>
                     <TouchableOpacity style={styles.menuOption} onPress={() => startEditDare(selectedDareForMenu)}>
-                      <Feather name="edit" size={20} color="#fff" styles={styles.menuIcon} />
+                      <Feather name="edit" size={20} color="#fff" style={styles.menuIcon} />
                       <Text style={styles.menuOptionText}>Edit</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -1189,7 +1130,7 @@ export default function Challenges() {
                         setDeleteConfirmVisible(true)
                       }}
                     >
-                      <Feather name="trash-2" size={20} color="#ff6b6b" styles={styles.menuIcon} />
+                      <Feather name="trash-2" size={20} color="#ff6b6b" style={styles.menuIcon} />
                       <Text style={[styles.menuOptionText, styles.deleteText]}>Delete</Text>
                     </TouchableOpacity>
 
@@ -1357,7 +1298,7 @@ export default function Challenges() {
           </Modal>
         </View>
 
-        {/* Timed Out Modal */}
+        {/* Confirmation Modals */}
         <Modal
           visible={timedOutModalVisible}
           transparent
@@ -1447,7 +1388,6 @@ export default function Challenges() {
           </View>
         </Modal>
 
-        {/* Enhanced Sidebar Modal */}
         <Modal
           visible={sidebarVisible}
           transparent
@@ -1455,112 +1395,56 @@ export default function Challenges() {
           onRequestClose={() => setSidebarVisible(false)}
         >
           <View style={{ flex: 1, flexDirection: "row" }}>
-            {/* Enhanced Sidebar */}
-            <Animated.View
-              style={[
-                styles.sidebarContainer,
-                {
-                  transform: [
-                    {
-                      translateX: hamburgerAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [-250, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
+            <View
+              style={{
+                width: 250,
+                backgroundColor: "#350064",
+                paddingVertical: 40,
+                paddingHorizontal: 20,
+              }}
             >
-              <LinearGradient colors={["#350064", "#4B0082", "#6A0DAD"]} style={styles.sidebarGradient}>
-                {/* Sidebar Header */}
-                <View style={styles.sidebarHeader}>
-                  <View style={styles.sidebarHeaderContent}>
-                    <Feather name="zap" size={32} color="#FFD700" />
-                    <Text style={styles.sidebarTitle}>DareMe</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => setSidebarVisible(false)} style={styles.sidebarCloseButton}>
-                    <Feather name="x" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* User Info Section */}
-                <View style={styles.userInfoSection}>
-                  <View style={styles.userAvatar}>
-                    <Feather name="user" size={24} color="#fff" />
-                  </View>
-                  <Text style={styles.userEmail}>{user?.email || "Guest"}</Text>
-                  <Text style={styles.userPoints}>⭐ {points} Points</Text>
-                </View>
-
-                {/* Navigation Items */}
-                <View style={styles.navigationSection}>
-                  <TouchableOpacity
-                    style={styles.navItem}
-                    onPress={() => {
-                      setSidebarVisible(false)
-                      routerInstance.push("/profile")
-                    }}
-                  >
-                    <View style={styles.navIconContainer}>
-                      <Feather name="user" size={20} color="#fff" />
-                    </View>
-                    <Text style={styles.navText}>My Profile</Text>
-                    <Feather name="chevron-right" size={16} color="#ccc" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.navItem}
-                    onPress={() => {
-                      setSidebarVisible(false)
-                      setLeaderboardVisible(true)
-                    }}
-                  >
-                    <View style={styles.navIconContainer}>
-                      <Feather name="bar-chart" size={20} color="#fff" />
-                    </View>
-                    <Text style={styles.navText}>Leaderboard</Text>
-                    <Feather name="chevron-right" size={16} color="#ccc" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.navItem}
-                    onPress={() => {
-                      setSidebarVisible(false)
-                      routerInstance.push("/my-dares")
-                    }}
-                  >
-                    <View style={styles.navIconContainer}>
-                      <Feather name="list" size={20} color="#fff" />
-                    </View>
-                    <Text style={styles.navText}>My Accepted Dares</Text>
-                    <Feather name="chevron-right" size={16} color="#ccc" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Logout Section */}
-                <View style={styles.logoutSection}>
-                  <TouchableOpacity
-                    style={styles.logoutButton}
-                    onPress={() => {
-                      setSidebarVisible(false)
-                      handleLogout()
-                    }}
-                  >
-                    <View style={styles.navIconContainer}>
-                      <Feather name="log-out" size={20} color="#ff6b6b" />
-                    </View>
-                    <Text style={[styles.navText, { color: "#ff6b6b" }]}>Logout</Text>
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
-            </Animated.View>
-
-            {/* Overlay */}
-            <TouchableOpacity
-              style={styles.sidebarOverlay}
-              onPress={() => setSidebarVisible(false)}
-              activeOpacity={1}
-            />
+              <TouchableOpacity
+                style={{ marginBottom: 30 }}
+                onPress={() => {
+                  setSidebarVisible(false)
+                  routerInstance.push("/profile")
+                }}
+              >
+                <Feather name="user" size={20} color="#fff" />
+                <Text style={{ color: "#fff", marginLeft: 10 }}>My Profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ marginBottom: 30 }}
+                onPress={() => {
+                  setSidebarVisible(false)
+                  setLeaderboardVisible(true)
+                }}
+              >
+                <Feather name="bar-chart" size={20} color="#fff" />
+                <Text style={{ color: "#fff", marginLeft: 10 }}>Leaderboard</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ marginBottom: 30 }}
+                onPress={() => {
+                  setSidebarVisible(false)
+                  routerInstance.push("/my-dares")
+                }}
+              >
+                <Feather name="list" size={20} color="#fff" />
+                <Text style={{ color: "#fff", marginLeft: 10 }}>My Accepted Dares</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ marginTop: 30 }}
+                onPress={() => {
+                  setSidebarVisible(false)
+                  handleLogout()
+                }}
+              >
+                <Feather name="log-out" size={20} color="#fff" />
+                <Text style={{ color: "#fff", marginLeft: 10 }}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={{ flex: 1 }} onPress={() => setSidebarVisible(false)} />
           </View>
         </Modal>
       </LinearGradient>
@@ -1635,7 +1519,7 @@ export default function Challenges() {
   )
 }
 
-//--- Enhanced Stylesheet with Hamburger Menu Styles ---
+//--- Stylesheet ---
 const styles = StyleSheet.create<{
   gradient: ViewStyle
   loadingContainer: ViewStyle
@@ -1665,6 +1549,10 @@ const styles = StyleSheet.create<{
   uploadButtonText: TextStyle
   uploadingContainer: ViewStyle
   uploadingText: TextStyle
+  evidenceSection: ViewStyle
+  evidenceSectionGradient: ViewStyle
+  evidenceHeader: ViewStyle
+  iconGradient: ViewStyle
   evidenceContainer: ViewStyle
   evidenceTitle: TextStyle
   evidenceText: TextStyle
@@ -1679,6 +1567,7 @@ const styles = StyleSheet.create<{
   expiredText: TextStyle
   aiAnalysisContainer: ViewStyle
   aiAnalysisTitle: TextStyle
+  aiAnalysisText: TextStyle
   logoutButton: ViewStyle
   logoutText: TextStyle
   modalOverlay: ViewStyle
@@ -1708,27 +1597,11 @@ const styles = StyleSheet.create<{
   fullScreenImage: ViewStyle
   videoContainer: ViewStyle
   fullScreenVideo: ViewStyle
-  // Enhanced Hamburger Menu Styles
-  hamburgerContainer: ViewStyle
+  commentTime: TextStyle
+  hamburgerMenu: ViewStyle
   hamburgerButton: ViewStyle
-  hamburgerGradient: ViewStyle
-  hamburgerRipple: ViewStyle
-  sidebarContainer: ViewStyle
-  sidebarGradient: ViewStyle
-  sidebarHeader: ViewStyle
-  sidebarHeaderContent: ViewStyle
-  sidebarTitle: TextStyle
-  sidebarCloseButton: ViewStyle
-  userInfoSection: ViewStyle
-  userAvatar: ViewStyle
-  userEmail: TextStyle
-  userPoints: TextStyle
-  navigationSection: ViewStyle
-  navItem: ViewStyle
-  navIconContainer: ViewStyle
-  navText: TextStyle
-  logoutSection: ViewStyle
-  sidebarOverlay: ViewStyle
+  hamburgerLines: ViewStyle
+  hamburgerLine: ViewStyle
 }>({
   gradient: {
     flex: 1,
@@ -1811,11 +1684,10 @@ const styles = StyleSheet.create<{
   },
 
   statusText: {
-    color: "#fff",
-    fontSize: 16,
-    marginBottom: 10,
-    fontFamily: "Montserrat-SemiBold",
-    marginTop: 5,
+    fontSize: 14,
+    color: "rgba(255,255,255,0.7)",
+    marginRight: 10,
+    fontFamily: "Montserrat-ExtraLightItalic",
   },
 
   row: {
@@ -1833,10 +1705,9 @@ const styles = StyleSheet.create<{
   },
 
   likeCount: {
+    color: "#fff",
     fontSize: 14,
-    color: "rgba(255,255,255,0.7)",
-    marginRight: 10,
-    fontFamily: "Montserrat-ExtraLightItalic",
+    fontFamily: "Montserrat-SemiBold",
   },
 
   actionButton: {
@@ -1920,6 +1791,31 @@ const styles = StyleSheet.create<{
     marginLeft: 10,
     color: "#fff",
     fontFamily: "Montserrat-SemiBold",
+  },
+
+  evidenceSection: {
+    marginTop: 15,
+    borderRadius: 8,
+  },
+
+  evidenceSectionGradient: {
+    padding: 12,
+    borderRadius: 8,
+  },
+
+  evidenceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  iconGradient: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
   },
 
   evidenceContainer: {
@@ -2029,6 +1925,12 @@ const styles = StyleSheet.create<{
     color: "#fff",
   },
 
+  aiAnalysisText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Montserrat-ExtraLightItalic",
+  },
+
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -2079,14 +1981,11 @@ const styles = StyleSheet.create<{
   },
 
   modalTitle: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 15,
     textAlign: "center",
-    color: "#FFD700", // gold
-    marginBottom: 20,
-    textShadowColor: "rgba(0, 0, 0, 0.7)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
     fontFamily: "Montserrat-SemiBold",
   },
 
@@ -2197,7 +2096,13 @@ const styles = StyleSheet.create<{
   },
 
   closeButton: {
-    marginTop: 5,
+    position: "absolute",
+    top: 20,
+    right: 20,
+    zIndex: 1000,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 20,
+    padding: 8,
   },
 
   menuOption: {
@@ -2247,173 +2152,45 @@ const styles = StyleSheet.create<{
     marginTop: 2,
   },
 
-  // Enhanced Hamburger Menu Styles
-  hamburgerContainer: {
+  // Beautiful Hamburger Menu Styles
+  hamburgerMenu: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 50 : 30,
+    top: 20,
     left: 20,
-    zIndex: 1000,
-  },
-
-  hamburgerButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-
-  hamburgerGradient: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.2)",
-  },
-
-  hamburgerRipple: {
-    position: "absolute",
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
-
-  // Enhanced Sidebar Styles
-  sidebarContainer: {
-    width: 280,
-    height: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 16,
-  },
-
-  sidebarGradient: {
-    flex: 1,
-    paddingTop: Platform.OS === "ios" ? 50 : 30,
-  },
-
-  sidebarHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.1)",
-  },
-
-  sidebarHeaderContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  sidebarTitle: {
-    color: "#FFD700",
-    fontSize: 24,
-    fontFamily: "Montserrat-SemiBold",
-    marginLeft: 12,
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-
-  sidebarCloseButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  userInfoSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 25,
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.1)",
-  },
-
-  userAvatar: {
+    zIndex: 99,
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    shadowColor: "#667eea",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 32,
+    elevation: 8,
+  },
+
+  hamburgerButton: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: "rgba(255,255,255,0.2)",
   },
 
-  userEmail: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "Montserrat-SemiBold",
-    marginBottom: 6,
-    textAlign: "center",
+  hamburgerLines: {
+    width: 28,
+    height: 20,
+    justifyContent: "space-between",
   },
 
-  userPoints: {
-    color: "#FFD700",
-    fontSize: 14,
-    fontFamily: "Montserrat-SemiBold",
-    textAlign: "center",
-  },
-
-  navigationSection: {
-    flex: 1,
-    paddingTop: 20,
-  },
-
-  navItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginHorizontal: 10,
-    marginVertical: 2,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.05)",
-  },
-
-  navIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-  },
-
-  navText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "Montserrat-SemiBold",
-    flex: 1,
-  },
-
-  logoutSection: {
-    paddingHorizontal: 10,
-    paddingBottom: 30,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.1)",
-    paddingTop: 20,
-  },
-
-  sidebarOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+  hamburgerLine: {
+    height: 3,
+    borderRadius: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 2,
   },
 })
