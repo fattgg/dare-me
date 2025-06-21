@@ -52,8 +52,10 @@ export default function Layout() {
         <Stack.Screen
           name="notifications"
           options={{
-            title: "Notifications"
-
+            title: '', // Page title shown in header
+            animation: 'fade',
+            headerBackVisible: false, // Disable back button for this screen
+            headerShown: false,
           }} />
 
         {/* Sign Up screen */}
@@ -90,10 +92,29 @@ export default function Layout() {
         <Stack.Screen
           name="my-dares"
           options={{
-            title: 'My Accepted Dares', // Header title for user's accepted dares
+            title: '', // Header title
+            animation: 'fade', // Smooth transition
+            headerShown: false, // Fullscreen view without header
           }}
         />
+        <Stack.Screen
+  name="profile"
+  options={{
+            title: '', // Header title
+            animation: 'fade', // Smooth transition
+            headerShown: false, // Fullscreen view without header
+          }}
+/>
+        <Stack.Screen
+  name="declined"
+  options={{
+            title: '', // Header title
+            animation: 'fade', // Smooth transition
+            headerShown: false, // Fullscreen view without header
+          }}
+/>
       </Stack>
+      
     </GestureHandlerRootView>
   );
 }
