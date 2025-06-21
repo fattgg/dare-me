@@ -18,14 +18,14 @@ import {
   TextStyle,
   Button,
 } from 'react-native';
-import { auth, db } from '../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
 import { ref, onValue, update, remove, push, get } from 'firebase/database';
 import { Swipeable } from 'react-native-gesture-handler';
 import { router, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Video } from 'expo-av';
 import { WebView } from 'react-native-webview';
-import { sendNotification } from '../notificationsHelper';
+import { sendNotification } from '../../notificationsHelper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
@@ -44,10 +44,10 @@ const SwipeableWrapper = ({ children, ...props }) =>
 
 export default function Challenges() {
   const [fontsLoaded] = useFonts({
-    'Montserrat-SemiBold': require('../assets/fonts/static/Montserrat-SemiBold.ttf'),
-    'Montserrat-ExtraLightItalic': require('../assets/fonts/static/Montserrat-ExtraLightItalic.ttf'),
-    'Montserrat-Thin': require('../assets/fonts/static/Montserrat-Thin.ttf'),
-    'Montserrat-SemiBoldItalic': require('../assets/fonts/static/Montserrat-SemiBoldItalic.ttf'),
+    'Montserrat-SemiBold': require('../../assets/fonts/static/Montserrat-SemiBold.ttf'),
+    'Montserrat-ExtraLightItalic': require('../../assets/fonts/static/Montserrat-ExtraLightItalic.ttf'),
+    'Montserrat-Thin': require('../../assets/fonts/static/Montserrat-Thin.ttf'),
+    'Montserrat-SemiBoldItalic': require('../../assets/fonts/static/Montserrat-SemiBoldItalic.ttf'),
   });
 
   interface Dare {

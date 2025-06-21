@@ -16,7 +16,7 @@ export default function Layout() {
       {/* Stack navigation configuration using Expo Router */}
       <Stack
         screenOptions={{
-          headerShown: true, // Show header by default on all screens
+          headerShown: false, // Show header by default on all screens
         }}
       >
         {/* Home screen (index.tsx) */}

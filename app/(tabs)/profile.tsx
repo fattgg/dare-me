@@ -9,10 +9,11 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { getAuth } from 'firebase/auth';
-import { db } from '../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
 import { ref, onValue } from 'firebase/database';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { AntDesign } from '@expo/vector-icons';
 
 export default function Profile() {
   const { uid } = useLocalSearchParams();
@@ -168,7 +169,10 @@ export default function Profile() {
         ListFooterComponent={
           !uid ? (
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutText}>Logout</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <AntDesign name="logout" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.logoutText}>Log out</Text>
+              </View>
             </TouchableOpacity>
           ) : null
         }
@@ -216,13 +220,23 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     backgroundColor: '#6A0DAD',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 20,
+    padding: 14,
+    borderRadius: 10,
+    marginTop: 30,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    alignSelf: 'center',
+    width: '50%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
   logoutText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 16,
   },
 });

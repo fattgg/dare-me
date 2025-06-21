@@ -7,7 +7,7 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
-import { db } from "../firebaseConfig";
+import { auth, db } from '../../firebaseConfig';
 import { ref, onValue } from "firebase/database";
 import { getAuth } from "firebase/auth";
 import { LinearGradient } from "expo-linear-gradient";

@@ -256,6 +256,7 @@ export const screenOptions = {
   headerShown: false,
 };
 
+
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
   container: {

@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { db, auth } from '../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
 import { ref, push } from 'firebase/database';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,10 +20,10 @@ const isWeb = Platform.OS === 'web';
 
 export default function CreateDare() {
   const [fontsLoaded] = useFonts({
-    "Montserrat-Thin": require("../assets/fonts/static/Montserrat-Thin.ttf"),
-    "Montserrat-SemiBoldItalic": require("../assets/fonts/static/Montserrat-SemiBoldItalic.ttf"),
-    "Montserrat-SemiBold": require("../assets/fonts/static/Montserrat-SemiBold.ttf"),
-    "Montserrat-ExtraLightItalic": require("../assets/fonts/static/Montserrat-ExtraLightItalic.ttf"),
+    "Montserrat-Thin": require("../../assets/fonts/static/Montserrat-Thin.ttf"),
+    "Montserrat-SemiBoldItalic": require("../../assets/fonts/static/Montserrat-SemiBoldItalic.ttf"),
+    "Montserrat-SemiBold": require("../../assets/fonts/static/Montserrat-SemiBold.ttf"),
+    "Montserrat-ExtraLightItalic": require("../../assets/fonts/static/Montserrat-ExtraLightItalic.ttf"),
   });
 
   const [challenge, setChallenge] = useState('');
