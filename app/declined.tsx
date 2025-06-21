@@ -1,5 +1,3 @@
-// app/declined.tsx
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -16,6 +14,7 @@ import { ref, onValue, update } from 'firebase/database';
 import { auth, db } from '../firebaseConfig';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native'; // <- shtuar
 
 type Dare = {
   id: string;
@@ -31,6 +30,7 @@ export default function DeclinedDares() {
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
   const user = auth.currentUser;
+  const navigation = useNavigation(); // <- shtuar
 
   useEffect(() => {
     if (!user) return;
@@ -77,6 +77,12 @@ export default function DeclinedDares() {
 
   return (
     <LinearGradient colors={['#4B0082', '#B788C4']} style={styles.container}>
+      {/* Go Back Button */}
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <Feather name="arrow-left" size={24} color="#fff" />
+        <Text style={styles.backText}>Back</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>Declined Dares</Text>
 
       {declinedDares.length === 0 ? (
@@ -108,7 +114,6 @@ export default function DeclinedDares() {
         />
       )}
 
-      {/* Modal Konfirmimi */}
       <Modal
         visible={confirmModalVisible}
         transparent
@@ -149,6 +154,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingHorizontal: 20,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  backText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontSize: 16,
+    fontFamily: 'Montserrat-SemiBold',
   },
   title: {
     fontSize: 26,
@@ -198,13 +214,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#4B0082',
   },
-
   emptyContainer: {
-  alignItems: 'center',
-  justifyContent: 'flex-start',
-  marginTop: 40, // ose 30-50 për pozicionim më të lartë
-},
-
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginTop: 40,
+  },
   emptyText: {
     color: '#ccc',
     fontSize: 16,
@@ -213,8 +227,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 20,
   },
-
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
