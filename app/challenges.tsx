@@ -31,8 +31,6 @@ import { Feather } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import Head from 'expo-router/head';
 
-
-
 // Cloudinary config
 const CLOUDINARY_CLOUD_NAME = 'dw0p7uxa6';
 const CLOUDINARY_UPLOAD_PRESET = 'dareme_private';
@@ -41,6 +39,9 @@ const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOU
 const isWeb = Platform.OS === 'web';
 const SwipeableWrapper = ({ children, ...props }) =>
   isWeb ? <View>{children}</View> : <Swipeable {...props}>{children}</Swipeable>;
+
+const CATEGORIES = ['All', 'Fitness', 'Social', 'Adventure'];
+const DIFFICULTY_OPTIONS = ['Easy', 'Medium', 'Hard'];
 
 export default function Challenges() {
   const [fontsLoaded] = useFonts({
@@ -66,11 +67,21 @@ export default function Challenges() {
       tags: string[];
       description: string;
     };
+    category?: string;
+    difficulty?: string;
+    criteria?: string[];
     [key: string]: any; // Add this to allow additional properties
   }
 
   const [dares, setDares] = useState<Dare[]>([]);
   const [selectedDare, setSelectedDare] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [randomCategory, setRandomCategory] = useState('');
+  const [randomDifficulty, setRandomDifficulty] = useState('');
+  const [randomDare, setRandomDare] = useState<Dare | null>(null);
+  const [randomError, setRandomError] = useState('');
+  const [randomLoading, setRandomLoading] = useState(false);
+
   interface Comment {
     id: string;
     userId: string;
@@ -110,27 +121,20 @@ export default function Challenges() {
   const [leaderboardVisible, setLeaderboardVisible] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [likeModalVisible, setLikeModalVisible] = useState(false);
-const [likedUsers, setLikedUsers] = useState<string[]>([]);
-const commentInputRef = useRef<TextInput>(null);
-const flatListRef = useRef<FlatList>(null);
+  const [likedUsers, setLikedUsers] = useState<string[]>([]);
+  const commentInputRef = useRef<TextInput>(null);
+  const flatListRef = useRef<FlatList>(null);
 
-
-
-
-const fetchLikedUsers = async (likedBy: string[]) => {
-  const usersRef = ref(db, 'users');
-  const snapshot = await get(usersRef);
-  if (snapshot.exists()) {
-    const data = snapshot.val();
-    const names = likedBy.map((uid) => data[uid]?.username || data[uid]?.email || 'User');
-    setLikedUsers(names);
-    setLikeModalVisible(true);
-  }
-};
-
-
-
-
+  const fetchLikedUsers = async (likedBy: string[]) => {
+    const usersRef = ref(db, 'users');
+    const snapshot = await get(usersRef);
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      const names = likedBy.map((uid) => data[uid]?.username || data[uid]?.email || 'User');
+      setLikedUsers(names);
+      setLikeModalVisible(true);
+    }
+  };
 
   const routerInstance = useRouter();
   const user = auth.currentUser;
@@ -143,20 +147,17 @@ const fetchLikedUsers = async (likedBy: string[]) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         const usersArray = Object.entries(data).map(([uid, user]: any) => ({
-  uid,
-  name: user.username || user.email || 'User',
-  points: user.points || 0,
-  completedCount: Object.values(user?.acceptedDares || {}).filter((d: any) => d.status === 'completed').length || 0,
-}));
-
+          uid,
+          name: user.username || user.email || 'User',
+          points: user.points || 0,
+          completedCount: Object.values(user?.acceptedDares || {}).filter((d: any) => d.status === 'completed').length || 0,
+        }));
 
         const sorted = usersArray.sort((a, b) => b.points - a.points);
         setLeaderboard(sorted);
       }
     });
   }, []);
-
-  
 
   useEffect(() => {
     if (!user) return;
@@ -170,17 +171,15 @@ const fetchLikedUsers = async (likedBy: string[]) => {
     });
   }, [user]);
 
-
   useEffect(() => {
     if (fontsLoaded) setIsReady(true);
   }, [fontsLoaded]);
 
   useEffect(() => {
-  if (replyToId && commentInputRef.current) {
-    commentInputRef.current.focus();
-  }
-}, [replyToId]);
-
+    if (replyToId && commentInputRef.current) {
+      commentInputRef.current.focus();
+    }
+  }, [replyToId]);
 
   useEffect(() => {
     const daresRef = ref(db, 'dares');
@@ -188,19 +187,16 @@ const fetchLikedUsers = async (likedBy: string[]) => {
       const data = snap.val();
       if (data) {
         const arr = Object.keys(data)
-  .map((key) => ({
-    id: key,
-    ...data[key],
-    likes: data[key].likedBy ? data[key].likedBy.length : 0,
-  }))
-  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          .map((key) => ({
+            id: key,
+            ...data[key],
+            likes: data[key].likedBy ? data[key].likedBy.length : 0,
+          }))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-setDares(arr);
-
+        setDares(arr);
       }
     });
-
-
 
     return () => {
       if (typeof unsubscribe === 'function') {
@@ -221,7 +217,6 @@ setDares(arr);
     });
   }, [user]);
 
-
   useEffect(() => {
     if (isWeb) {
       const resize = () => setIsSmallScreen(window.innerWidth < 500);
@@ -231,36 +226,31 @@ setDares(arr);
     }
   }, []);
 
-
   const handleAcceptDare = async (dareId) => {
-  try {
-    if (!user) return Alert.alert('Error', 'You must be logged in to accept a dare.');
+    try {
+      if (!user) return Alert.alert('Error', 'You must be logged in to accept a dare.');
 
-    const dareRef = ref(db, `dares/${dareId}`);
-    const timestamp = new Date().toISOString();
+      const dareRef = ref(db, `dares/${dareId}`);
+      const timestamp = new Date().toISOString();
 
-    await update(dareRef, {
-  status: 'in-progress',
-  acceptedBy: {
-    [user.uid]: true,
-  },
-  acceptedAt: timestamp,
-});
+      await update(dareRef, {
+        status: 'in-progress',
+        acceptedBy: {
+          [user.uid]: true,
+        },
+        acceptedAt: timestamp,
+      });
 
+      await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
+        status: 'in-progress',
+        acceptedAt: timestamp,
+      });
 
-    // ✅ SHTO KËTË pjesë që ruan accepted dare tek user-i
-    await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
-      status: 'in-progress',
-      acceptedAt: timestamp,
-    });
-
-    Alert.alert('Success', 'Dare accepted!');
-  } catch {
-    Alert.alert('Error', 'Failed to accept dare.');
-  }
-};
-
-
+      Alert.alert('Success', 'Dare accepted!');
+    } catch {
+      Alert.alert('Error', 'Failed to accept dare.');
+    }
+  };
 
   const handleDeleteDare = async () => {
     try {
@@ -273,45 +263,43 @@ setDares(arr);
   };
 
   const handleLikeDare = async (dareId: string, likedBy: string[] = []) => {
-  try {
-    if (!user) return Alert.alert('Error', 'You must be logged in to like a dare.');
+    try {
+      if (!user) return Alert.alert('Error', 'You must be logged in to like a dare.');
 
-    const dare = dares.find((d) => d.id === dareId);
-    if (!dare || !dare.userId) return;
+      const dare = dares.find((d) => d.id === dareId);
+      if (!dare || !dare.userId) return;
 
-    const isLiking = !likedBy.includes(user.uid);
-    const newLiked = isLiking
-      ? [...likedBy, user.uid]
-      : likedBy.filter((u) => u !== user.uid);
+      const isLiking = !likedBy.includes(user.uid);
+      const newLiked = isLiking
+        ? [...likedBy, user.uid]
+        : likedBy.filter((u) => u !== user.uid);
 
-    await update(ref(db, `dares/${dareId}`), { likedBy: newLiked });
+      await update(ref(db, `dares/${dareId}`), { likedBy: newLiked });
 
-    if (isLiking && dare.userId !== user.uid) {
-      await addPointsToUser(dare.userId, 1);
+      if (isLiking && dare.userId !== user.uid) {
+        await addPointsToUser(dare.userId, 1);
 
-      await push(ref(db, "notifications"), {
-  type: "like",
-  dareId: dare.id,
-  userId: dare.userId,
-  dare: {
-    id: dare.id,
-    challenge: dare.challenge,
-  },
-  likerName: user.email || user.uid,
-  timestamp: Date.now(),
-});
+        await push(ref(db, "notifications"), {
+          type: "like",
+          dareId: dare.id,
+          userId: dare.userId,
+          dare: {
+            id: dare.id,
+            challenge: dare.challenge,
+          },
+          likerName: user.email || user.uid,
+          timestamp: Date.now(),
+        });
 
-    } else if (!isLiking && dare.userId !== user.uid) {
-      await addPointsToUser(dare.userId, -1); // remove point on unlike
+      } else if (!isLiking && dare.userId !== user.uid) {
+        await addPointsToUser(dare.userId, -1);
+      }
+
+    } catch (e) {
+      console.error("Like error:", e);
+      Alert.alert('Error', 'Like failed.');
     }
-
-  } catch (e) {
-    console.error("Like error:", e);
-    Alert.alert('Error', 'Like failed.');
-  }
-};
-
-
+  };
 
   const addPointsToUser = async (userId: string, pointsToAdd: number) => {
     const userRef = ref(db, `users/${userId}/points`);
@@ -322,41 +310,36 @@ setDares(arr);
     });
   };
 
-
-
   const openComments = (dareId) => {
     setSelectedDare(dareId);
     setModalVisible(true);
     onValue(ref(db, `dares/${dareId}/comments`), (snap) => {
-  const data = snap.val();
-  if (!data) {
-    setComments([]);
-    setReplies({});
-    return;
-  }
+      const data = snap.val();
+      if (!data) {
+        setComments([]);
+        setReplies({});
+        return;
+      }
 
-  const commentsArray: Comment[] = [];
-  const repliesMap: { [commentId: string]: Comment[] } = {};
+      const commentsArray: Comment[] = [];
+      const repliesMap: { [commentId: string]: Comment[] } = {};
 
-  Object.entries(data).forEach(([commentId, commentData]: any) => {
-    const { replies, ...mainComment } = commentData;
+      Object.entries(data).forEach(([commentId, commentData]: any) => {
+        const { replies, ...mainComment } = commentData;
 
-    commentsArray.push({ id: commentId, ...mainComment });
+        commentsArray.push({ id: commentId, ...mainComment });
 
-    // ✅ ruan replies në state që të shfaqen në UI
-    if (replies) {
-      repliesMap[commentId] = Object.entries(replies).map(([rid, replyData]: any) => ({
-        id: rid,
-        ...replyData,
-      }));
-    }
-  });
+        if (replies) {
+          repliesMap[commentId] = Object.entries(replies).map(([rid, replyData]: any) => ({
+            id: rid,
+            ...replyData,
+          }));
+        }
+      });
 
-  setComments(commentsArray);
-  setReplies(repliesMap); // <-- kjo mungonte më parë
-});
-
-
+      setComments(commentsArray);
+      setReplies(repliesMap);
+    });
   };
 
   const handleAddComment = async () => {
@@ -366,7 +349,7 @@ setDares(arr);
       if (!user) return Alert.alert('Error', 'You must be logged in to comment.');
 
       const commentData: Comment = {
-        id: Date.now().toString(), // ID për UI
+        id: Date.now().toString(),
         userId: user.uid,
         username: user.email || 'Anonymous',
         text: newComment,
@@ -374,46 +357,40 @@ setDares(arr);
       };
 
       if (replyToId) {
-  await push(ref(db, `dares/${selectedDare}/comments/${replyToId}/replies`), commentData);
-} else {
-  await push(ref(db, `dares/${selectedDare}/comments`), commentData);
-}
-
+        await push(ref(db, `dares/${selectedDare}/comments/${replyToId}/replies`), commentData);
+      } else {
+        await push(ref(db, `dares/${selectedDare}/comments`), commentData);
+      }
 
       setNewComment('');
       setReplyToText(null);
       setReplyToId(null);
 
       if (replyToId) {
-  const index = comments.findIndex((c) => c.id === replyToId);
-  if (index !== -1) {
-    setTimeout(() => {
-      flatListRef.current?.scrollToIndex({
-        index,
-        animated: true,
-        viewPosition: 0.5
-      });
-    }, 300);
-  }
-} 
-else {
-  setTimeout(() => {
-    flatListRef.current?.scrollToOffset({
-      offset: Number.MAX_SAFE_INTEGER,
-      animated: true,
-    });
-  }, 300);
-}
-
-
-
+        const index = comments.findIndex((c) => c.id === replyToId);
+        if (index !== -1) {
+          setTimeout(() => {
+            flatListRef.current?.scrollToIndex({
+              index,
+              animated: true,
+              viewPosition: 0.5
+            });
+          }, 300);
+        }
+      }
+      else {
+        setTimeout(() => {
+          flatListRef.current?.scrollToOffset({
+            offset: Number.MAX_SAFE_INTEGER,
+            animated: true,
+          });
+        }, 300);
+      }
 
     } catch {
       Alert.alert('Error', 'Failed to add comment.');
     }
   };
-
-
 
   const startEditDare = (dareId) => {
     const dare = dares.find((x) => x.id === dareId);
@@ -433,7 +410,6 @@ else {
     setEditMode(true);
   };
 
-
   const handleUpdateDare = async () => {
     try {
       await update(ref(db, `dares/${selectedDareForMenu}`), {
@@ -448,7 +424,6 @@ else {
     }
   };
 
-  // --- Azure AI from File 1 ---
   const analyzeMediaWithAzureAI = async (url, criteria) => {
     try {
       const endpoint = 'https://fatlindosmani.cognitiveservices.azure.com/';
@@ -468,13 +443,11 @@ else {
     }
   };
 
-  // --- Combined Evidence Upload ---
   const handleUploadEvidence = async (dareId) => {
     try {
       setIsLoading(true);
       setUploadingDareId(dareId);
 
-      // get criteria if any
       const snap = await get(ref(db, `dares/${dareId}`));
       const crit = snap.val()?.criteria;
       if (!crit) {
@@ -483,7 +456,6 @@ else {
         return;
       }
 
-      // pick media
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         Alert.alert('Error', 'Permission denied.');
@@ -500,7 +472,6 @@ else {
         return;
       }
 
-      // prepare upload
       const uri = result.assets[0].uri;
       const isVid = uri.endsWith('.mp4') || uri.endsWith('.mov');
       const ext = uri.split('.').pop();
@@ -514,7 +485,6 @@ else {
       const uj = await up.json();
       if (!uj.secure_url) throw new Error('Upload failed');
 
-      // analyze & save
       const ai = await analyzeMediaWithAzureAI(uj.secure_url, crit);
       const updateData = {
         evidence: uj.public_id,
@@ -526,7 +496,6 @@ else {
       if (ai.isCompleted) {
         updateData['aiAnalysis'] = ai;
       } else {
-        // Provide more detailed AI rejection feedback
         let reason = "Evidence does not meet the challenge criteria.";
 
         if (!ai.tags.includes("person") && !ai.tags.includes("face")) {
@@ -559,17 +528,13 @@ else {
 
       }
 
-
       await update(ref(db, `dares/${dareId}`), updateData);
-      await addPointsToUser(user.uid, 10); // +10 pikë për përfundim
-      // ✅ Përditëso statusin tek users/{uid}/acceptedDares
-await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
-  status: 'completed',
-  completedAt: new Date().toISOString(),
-});
+      await addPointsToUser(user.uid, 10);
+      await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
 
-
-      // Kontrollo dhe shpërndaj badge
       const userBadgeRef = ref(db, `users/${user.uid}/badges`);
       const userDaresRef = ref(db, `dares`);
       const userSnapshot = await get(userBadgeRef);
@@ -593,9 +558,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
         });
       }
 
-
-
-      // Notify dare owner
       const dareSnap = await get(ref(db, `dares/${dareId}`));
       const dare = dareSnap.val();
       if (dare && dare.userId) {
@@ -652,7 +614,30 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
     }
   };
 
-  // --- Render each dare (styled like file2) ---
+  const handleGetRandomDare = () => {
+    setRandomError('');
+    setRandomDare(null);
+    setRandomLoading(true);
+    // Filter dares by selected category and difficulty
+    const filtered = dares.filter(
+      d =>
+        (!randomCategory || d.category === randomCategory) &&
+        (!randomDifficulty || d.difficulty === randomDifficulty)
+    );
+    if (filtered.length === 0) {
+      setRandomError('No dare found for this selection.');
+      setRandomLoading(false);
+      return;
+    }
+    const idx = Math.floor(Math.random() * filtered.length);
+    setRandomDare(filtered[idx]);
+    setRandomLoading(false);
+  };
+
+  const filteredDares = selectedCategory === 'All'
+    ? dares
+    : dares.filter((d) => d.category === selectedCategory);
+
   const renderDare = ({ item }) => {
     const isOwner = user?.uid === item.userId;
     const isAccepted = item.acceptedBy === user?.uid;
@@ -662,7 +647,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
     return (
       <SwipeableWrapper>
         <View style={styles.dareItem}>
-          {/* Top Section: Challenge Details */}
           <View style={styles.rowTop}>
             {isOwner && (
               <TouchableOpacity
@@ -678,64 +662,58 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
           <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
           <Text style={styles.dareText}>Reward: {item.reward}</Text>
           <View style={{
-  marginTop: 10,
-  padding: 10,
-  borderRadius: 10,
-  backgroundColor: 'rgba(255,255,255,0.04)',
-  borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.08)'
-}}>
-  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-    <Feather name="user" size={16} color="#ccc" style={{ marginRight: 6 }} />
-    <Text style={styles.statusText}>
-  Posted by: <Text style={{ color: '#fff' }}>{item.username || 'Anonymous'}</Text>
-</Text>
+            marginTop: 10,
+            padding: 10,
+            borderRadius: 10,
+            backgroundColor: 'rgba(255,255,255,0.04)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.08)'
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+              <Feather name="user" size={16} color="#ccc" style={{ marginRight: 6 }} />
+              <Text style={styles.statusText}>
+                Posted by: <Text style={{ color: '#fff' }}>{item.username || 'Anonymous'}</Text>
+              </Text>
+            </View>
 
-  </View>
-
-  {item.userId !== user?.uid && (
-  <TouchableOpacity
-    onPress={() => routerInstance.push(`/profile?uid=${item.userId}`)}
-    style={{
-      alignSelf: 'flex-start',
-      backgroundColor: '#5A189A',
-      paddingVertical: 4,
-      paddingHorizontal: 10,
-      borderRadius: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-    }}
-  >
-    <Feather name="arrow-right" size={14} color="#fff" style={{ marginRight: 6 }} />
-    <Text style={{ color: '#fff', fontFamily: 'Montserrat-SemiBold', fontSize: 12 }}>
-      View Profile
-    </Text>
-  </TouchableOpacity>
-)}
-
-</View>
-
-
-
-
+            {item.userId !== user?.uid && (
+              <TouchableOpacity
+                onPress={() => routerInstance.push(`/profile?uid=${item.userId}`)}
+                style={{
+                  alignSelf: 'flex-start',
+                  backgroundColor: '#5A189A',
+                  paddingVertical: 4,
+                  paddingHorizontal: 10,
+                  borderRadius: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+              >
+                <Feather name="arrow-right" size={14} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={{ color: '#fff', fontFamily: 'Montserrat-SemiBold', fontSize: 12 }}>
+                  View Profile
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <Text style={styles.statusText}>
             Status:{" "}
-            {item.status === "completed"
+            {/* Shfaq "Completed" vetëm për përdoruesin që e ka përfunduar */}
+            {item.status === "completed" && item.acceptedBy && item.acceptedBy[user?.uid]
               ? "Completed"
-              : item.status === "in-progress"
+              : item.status === "in-progress" && item.acceptedBy && item.acceptedBy[user?.uid]
                 ? "In Progress"
                 : "Available"}
           </Text>
 
-          {/* Buttons Section */}
+
           <View
             style={[
               styles.row,
               isSmallScreen && { flexDirection: "column", alignItems: "flex-start" },
             ]}
           >
-            {/* Like and Comments Buttons */}
             <View
               style={[
                 styles.likeContainer,
@@ -743,22 +721,19 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
               ]}
             >
               <TouchableOpacity
-  style={styles.actionButton}
-  onPress={() => fetchLikedUsers(item.likedBy || [])}
->
-  <Feather
-    name="users"
-    size={16}
-    color="#fff"
-    styles={styles.actionIcon}
-  />
-  <Text style={styles.actionText}>
-    {item.likes} {item.likes === 1 ? 'Like' : 'Likes'}
-  </Text>
-</TouchableOpacity>
-
-
-
+                style={styles.actionButton}
+                onPress={() => fetchLikedUsers(item.likedBy || [])}
+              >
+                <Feather
+                  name="users"
+                  size={16}
+                  color="#fff"
+                  styles={styles.actionIcon}
+                />
+                <Text style={styles.actionText}>
+                  {item.likes} {item.likes === 1 ? 'Like' : 'Likes'}
+                </Text>
+              </TouchableOpacity>
 
               {!isOwner && (
                 <TouchableOpacity
@@ -778,7 +753,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                     {item.likedBy?.includes(user?.uid) ? 'Unlike' : 'Like'}
                   </Text>
                 </TouchableOpacity>
-
               )}
             </View>
             <TouchableOpacity
@@ -795,16 +769,8 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
             </TouchableOpacity>
           </View>
 
-          {/* Accept/Decline Buttons */}
-          {/* Accept/Decline Buttons */}
-          {/* Accept/Decline Buttons */}
-          {!isOwner && !item.acceptedBy && !item.declinedBy?.[user?.uid] && item.status !== "in-progress" && item.status !== "completed" && (
-            <View
-              style={[
-                styles.row,
-                isSmallScreen && { flexDirection: "column", alignItems: "flex-start" },
-              ]}
-            >
+          {!isOwner && (!item.acceptedBy || !item.acceptedBy[user?.uid]) && (!item.declinedBy || !item.declinedBy[user?.uid]) && (
+            <View style={[styles.row, isSmallScreen && { flexDirection: "column", alignItems: "flex-start" }]}>
               <TouchableOpacity
                 style={styles.acceptButton}
                 onPress={() => {
@@ -815,7 +781,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                 <Feather name="check" size={16} color="#fff" styles={styles.actionIcon} />
                 <Text style={styles.acceptText}>Accept</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.rejectButton}
                 onPress={() => {
@@ -826,13 +791,10 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                 <Feather name="x" size={16} color="#fff" styles={styles.actionIcon} />
                 <Text style={styles.rejectText}>Decline</Text>
               </TouchableOpacity>
-
             </View>
           )}
 
 
-
-          {/* Upload Evidence Button */}
           {item.status === "in-progress" &&
             isAccepted &&
             (isUploading ? (
@@ -856,12 +818,8 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
               </TouchableOpacity>
             ))}
 
-          {/* Evidence Section */}
-          {/* Display Evidence */}
           {item.evidence && (
             <View style={styles.evidenceContainer}>
-              <Text style={styles.evidenceTitle}>Evidence:</Text>
-
               {expired ? (
                 <View style={styles.expiredContainer}>
                   <Text style={styles.expiredText}>Evidence has expired</Text>
@@ -884,34 +842,13 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                   onPress={() => viewEvidence(item)}
                   disabled={isLoading}
                 >
-                  {item.evidenceUrl ? (
-                    <>
-                      <Image
-                        source={{ uri: item.evidenceUrl }}
-                        style={styles.evidenceImage}
-                        resizeMode="cover"
-                      />
-                      <Text style={styles.viewFullText}>Tap to view full image</Text>
-                    </>
-                  ) : (
-                    <View style={styles.evidenceImagePlaceholder}>
-                      <Text style={styles.viewFullText}>
-                        {isLoading ? 'Loading...' : 'Tap to view evidence'}
-                      </Text>
-                    </View>
-                  )}
+
                 </TouchableOpacity>
               )}
 
               {item.evidenceExpires && !expired && (
                 <Text style={styles.expiresText}>
                   Evidence available until: {new Date(item.evidenceExpires).toLocaleString()}
-                </Text>
-              )}
-
-              {item.completedAt && (
-                <Text style={styles.completedText}>
-                  Completed on: {new Date(item.completedAt).toLocaleDateString()}
                 </Text>
               )}
 
@@ -943,7 +880,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
     }
   };
 
-  // --- Main render ---
   if (!isReady || isLoading) {
     return (
       <LinearGradient colors={['#4B0082', '#B788C4']} style={styles.loadingContainer}>
@@ -1019,41 +955,40 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
               color="#fff"
             />
             <Text style={styles.title}>Available Dares</Text>
-           <View style={{
-  marginTop: 20,
-  marginBottom: 20,
-  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  paddingVertical: 10,
-  paddingHorizontal: 16,
-  borderRadius: 14,
-  borderWidth: 1,
-  borderColor: 'rgba(255, 255, 255, 0.15)',
-  flexDirection: 'row',
-  alignItems: 'center',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 3 },
-  shadowOpacity: 0.3,
-  shadowRadius: 6,
-}}>
-  <Feather name="star" size={20} color="#FFD700" style={{ marginRight: 10 }} />
-  <Text style={{
-    color: '#FFD700',
-    fontSize: 16,
-    fontFamily: 'Montserrat-SemiBold',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  }}>
-    Your Points: {points}
-  </Text>
-</View>
+            <View style={{
+              marginTop: 20,
+              marginBottom: 20,
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.15)',
+              flexDirection: 'row',
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.3,
+              shadowRadius: 6,
+            }}>
+              <Feather name="star" size={20} color="#FFD700" style={{ marginRight: 10 }} />
+              <Text style={{
+                color: '#FFD700',
+                fontSize: 16,
+                fontFamily: 'Montserrat-SemiBold',
+                textShadowColor: 'rgba(0,0,0,0.5)',
+                textShadowOffset: { width: 1, height: 1 },
+                textShadowRadius: 2,
+              }}>
+                Your Points: {points}
+              </Text>
+            </View>
 
             {badges.length > 0 && (
               <Text style={{ color: '#fff', fontStyle: 'italic', marginTop: 5 }}>
                 🏅 Badges: {badges.join(', ')}
               </Text>
             )}
-
 
             <TextInput
               placeholder="Search dare or email..."
@@ -1063,7 +998,22 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
               style={[styles.input, { marginBottom: 15 }]}
             />
 
-
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginVertical: 10 }}>
+              {CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={{
+                    padding: 10,
+                    marginHorizontal: 5,
+                    borderRadius: 20,
+                    backgroundColor: selectedCategory === cat ? '#4B0082' : '#eee',
+                  }}
+                  onPress={() => setSelectedCategory(cat)}
+                >
+                  <Text style={{ color: selectedCategory === cat ? '#fff' : '#333' }}>{cat}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
           <View style={[styles.buttonContainer, isSmallScreen && { flexDirection: 'column' }]}>
             <TouchableOpacity style={[styles.mainButton, isSmallScreen && { width: '100%' }]} onPress={() => routerInstance.push('/create-dare')}>
@@ -1075,8 +1025,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
               />
               <Text style={styles.buttonText}>Post a Dare</Text>
             </TouchableOpacity>
-
-
 
             <TouchableOpacity
               style={styles.mainButton}
@@ -1092,30 +1040,131 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
             </TouchableOpacity>
           </View>
 
+          <View style={{
+            backgroundColor: 'rgba(255,255,255,0.07)',
+            borderRadius: 16,
+            padding: 18,
+            marginBottom: 18,
+            alignItems: 'center'
+          }}>
+            <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Montserrat-SemiBold', marginBottom: 10 }}>
+              🎲 Get a Random Dare
+            </Text>
+            <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+              {CATEGORIES.filter(c => c !== 'All').map(cat => (
+                <TouchableOpacity
+                  key={cat}
+                  style={{
+                    padding: 8,
+                    marginHorizontal: 4,
+                    borderRadius: 16,
+                    backgroundColor: randomCategory === cat ? '#4B0082' : '#eee',
+                  }}
+                  onPress={() => setRandomCategory(cat)}
+                >
+                  <Text style={{ color: randomCategory === cat ? '#fff' : '#333' }}>{cat}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+              {DIFFICULTY_OPTIONS.map(level => (
+                <TouchableOpacity
+                  key={level}
+                  style={{
+                    padding: 8,
+                    marginHorizontal: 4,
+                    borderRadius: 16,
+                    backgroundColor: randomDifficulty === level ? '#4B0082' : '#eee',
+                  }}
+                  onPress={() => setRandomDifficulty(level)}
+                >
+                  <Text style={{ color: randomDifficulty === level ? '#fff' : '#333' }}>{level}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#6A0DAD',
+                paddingVertical: 10,
+                paddingHorizontal: 24,
+                borderRadius: 10,
+                marginTop: 5,
+                opacity: randomCategory && randomDifficulty ? 1 : 0.5
+              }}
+              onPress={handleGetRandomDare}
+              disabled={!randomCategory || !randomDifficulty || randomLoading}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                {randomLoading ? 'Loading...' : 'Get Random Dare'}
+              </Text>
+            </TouchableOpacity>
+            {randomError ? (
+              <Text style={{ color: 'red', marginTop: 10 }}>{randomError}</Text>
+            ) : null}
+            {randomDare && (
+              <View style={{
+                marginTop: 18,
+                backgroundColor: 'rgba(255,255,255,0.09)',
+                borderRadius: 12,
+                padding: 14,
+                width: '100%',
+                alignItems: 'center'
+              }}>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{randomDare.challenge}</Text>
+                <Text style={{ color: '#fff', marginTop: 6 }}>Reward: {randomDare.reward}</Text>
+                <Text style={{ color: '#fff', marginTop: 6 }}>Category: {randomDare.category}</Text>
+                <Text style={{ color: '#fff', marginTop: 6 }}>Difficulty: {randomDare.difficulty}</Text>
+                <Text style={{ color: '#fff', marginTop: 6, fontStyle: 'italic' }}>
+                  Criteria: {Array.isArray(randomDare.criteria) ? randomDare.criteria.join(', ') : randomDare.criteria}
+                </Text>
+                {/* Accept/Decline Buttons */}
+                <View style={{ flexDirection: 'row', marginTop: 16, gap: 12 }}>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#4CAF50',
+                      paddingVertical: 8,
+                      paddingHorizontal: 18,
+                      borderRadius: 8,
+                      marginRight: 8,
+                    }}
+                    onPress={() => {
+                      setDareIdToConfirm(randomDare.id);
+                      setConfirmAcceptVisible(true);
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>Accept</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#ff6b6b',
+                      paddingVertical: 8,
+                      paddingHorizontal: 18,
+                      borderRadius: 8,
+                    }}
+                    onPress={() => {
+                      setDareIdToConfirm(randomDare.id);
+                      setConfirmDeclineVisible(true);
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>Decline</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
 
-
-
-
-
-
-
-<FlatList
-  data={dares.filter(
-    (d) =>
-      // filtrimi i kërkimit
-      (d.challenge.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (d.username || '').toLowerCase().includes(searchQuery.toLowerCase())) &&
-      // përjashto nëse është refuzuar nga ky përdorues
-      !(d.declinedBy && d.declinedBy[user?.uid])
-  )}
-
+          <FlatList
+            data={filteredDares.filter(
+              (d) =>
+                (d.challenge.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  (d.username || '').toLowerCase().includes(searchQuery.toLowerCase())) &&
+                !(d.declinedBy && d.declinedBy[user?.uid])
+            )}
             keyExtractor={(i) => i.id}
             renderItem={renderDare}
             contentContainerStyle={styles.list}
           />
 
-
-          {/* Comments Modal */}
           <Modal visible={modalVisible} transparent animationType="slide">
             <View style={styles.modalOverlay}>
               <View style={styles.modalContainer}>
@@ -1129,102 +1178,96 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                   </TouchableOpacity>
                 </View>
                 <FlatList
-  ref={flatListRef}
-  data={comments}
-  keyExtractor={(c) => c.id}
-  renderItem={({ item }) => (
-    <View style={styles.commentItem}>
-      <Text style={styles.commentAuthor}>{item.username}:</Text>
-      <Text style={styles.commentText}>{item.text}</Text>
-      <Text style={styles.commentTime}>{new Date(item.timestamp).toLocaleString()}</Text>
+                  ref={flatListRef}
+                  data={comments}
+                  keyExtractor={(c) => c.id}
+                  renderItem={({ item }) => (
+                    <View style={styles.commentItem}>
+                      <Text style={styles.commentAuthor}>{item.username}:</Text>
+                      <Text style={styles.commentText}>{item.text}</Text>
+                      <Text style={styles.commentTime}>{new Date(item.timestamp).toLocaleString()}</Text>
 
-      <TouchableOpacity onPress={() => {
-        setReplyToId(item.id);
-        setReplyToText(item.text);
-      }}>
-        <Text style={{ color: '#ccc', fontSize: 13 }}>Reply</Text>
-      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => {
+                        setReplyToId(item.id);
+                        setReplyToText(item.text);
+                      }}>
+                        <Text style={{ color: '#ccc', fontSize: 13 }}>Reply</Text>
+                      </TouchableOpacity>
 
-      {replies[item.id]?.map((reply) => (
-        <View key={reply.id} style={{ marginLeft: 20, marginTop: 5 }}>
-          <Text style={styles.commentAuthor}>{reply.username}:</Text>
-          <Text style={styles.commentText}>{reply.text}</Text>
-          <Text style={styles.commentTime}>{new Date(reply.timestamp).toLocaleString()}</Text>
-        </View>
-      ))}
-    </View>
-  )}
-  contentContainerStyle={styles.commentsList}
-  style={{ maxHeight: 300 }}
-  showsVerticalScrollIndicator={true}
-  getItemLayout={(data, index) => ({
-    length: 85, // përafërsisht lartësia e një komenti me mundësi reply
-    offset: 85 * index,
-    index,
-  })}
-  onScrollToIndexFailed={(info) => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToOffset({
-        offset: info.averageItemLength * info.index,
-        animated: true,
-      });
-    }, 300);
-  }}
-/>
-
-
-
+                      {replies[item.id]?.map((reply) => (
+                        <View key={reply.id} style={{ marginLeft: 20, marginTop: 5 }}>
+                          <Text style={styles.commentAuthor}>{reply.username}:</Text>
+                          <Text style={styles.commentText}>{reply.text}</Text>
+                          <Text style={styles.commentTime}>{new Date(reply.timestamp).toLocaleString()}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  contentContainerStyle={styles.commentsList}
+                  style={{ maxHeight: 300 }}
+                  showsVerticalScrollIndicator={true}
+                  getItemLayout={(data, index) => ({
+                    length: 85,
+                    offset: 85 * index,
+                    index,
+                  })}
+                  onScrollToIndexFailed={(info) => {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToOffset({
+                        offset: info.averageItemLength * info.index,
+                        animated: true,
+                      });
+                    }, 300);
+                  }}
+                />
 
                 <View style={styles.commentInputContainer}>
                   <TextInput
-  ref={commentInputRef}
-  style={[styles.input, { minHeight: 45, textAlignVertical: 'top' }]}
-  placeholder="Add a comment..."
-  placeholderTextColor="#ccc"
-  value={newComment}
-  onChangeText={setNewComment}
-  multiline
-  onKeyPress={({ nativeEvent }) => {
-    if (nativeEvent.key === 'Enter' && !nativeEvent.shiftKey) {
-      // Parandalon rreshtin e ri me Enter vetëm (pa Shift)
-      nativeEvent.preventDefault?.();
-      handleAddComment();
-    }
-  }}
-/>
+                    ref={commentInputRef}
+                    style={[styles.input, { minHeight: 45, textAlignVertical: 'top' }]}
+                    placeholder="Add a comment..."
+                    placeholderTextColor="#ccc"
+                    value={newComment}
+                    onChangeText={setNewComment}
+                    multiline
+                    onKeyPress={({ nativeEvent }) => {
+                      if (nativeEvent.key === 'Enter' && !nativeEvent.shiftKey) {
+                        nativeEvent.preventDefault?.();
+                        handleAddComment();
+                      }
+                    }}
+                  />
 
-
-{replyToId && (
-  <TouchableOpacity
-  onPress={() => {
-    setReplyToId(null);
-    setReplyToText(null);
-  }}
-  style={{
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  }}
->
-  <Text
-    style={{
-      color: '#CCCCFF', // një nuancë e lehtë blu-violet
-      fontFamily: 'Montserrat-SemiBold',
-      fontSize: 14,
-    }}
-  >
-     Cancel Reply
-  </Text>
-</TouchableOpacity>
-
-)}
+                  {replyToId && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setReplyToId(null);
+                        setReplyToText(null);
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(255,255,255,0.07)',
+                        paddingVertical: 6,
+                        paddingHorizontal: 12,
+                        borderRadius: 20,
+                        alignSelf: 'flex-start',
+                        marginTop: 8,
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.1)',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#CCCCFF',
+                          fontFamily: 'Montserrat-SemiBold',
+                          fontSize: 14,
+                        }}
+                      >
+                        Cancel Reply
+                      </Text>
+                    </TouchableOpacity>
+                  )}
 
                   <TouchableOpacity style={styles.addCommentButton} onPress={handleAddComment}>
                     <Feather name="send"
@@ -1237,7 +1280,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
             </View>
           </Modal>
 
-          {/* Menu Modal */}
           <Modal visible={menuVisible} transparent animationType="fade">
             <View style={styles.menuModal}>
               <View style={styles.menuContent}>
@@ -1286,9 +1328,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                         setDeleteConfirmVisible(true);
                       }}
                     >
-
-
-
                       <Feather
                         name="trash-2"
                         size={20}
@@ -1307,7 +1346,7 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
               </View>
             </View>
           </Modal>
-          {/* Leaderboard Modal */}
+
           <Modal
             visible={leaderboardVisible}
             transparent
@@ -1323,78 +1362,75 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                   </Text>
                 </View>
                 <TextInput
-  placeholder="Search users..."
-  placeholderTextColor="#ccc"
-  value={leaderboardSearch}
-  onChangeText={setLeaderboardSearch}
-  style={[styles.input, { marginBottom: 15 }]}
-/>
-
+                  placeholder="Search users..."
+                  placeholderTextColor="#ccc"
+                  value={leaderboardSearch}
+                  onChangeText={setLeaderboardSearch}
+                  style={[styles.input, { marginBottom: 15 }]}
+                />
 
                 <FlatList
-  data={leaderboard
-    .map((item, i) => ({ ...item, realIndex: i })) // ruan vendin origjinal
-    .filter((item) =>
-      item.name.toLowerCase().includes(leaderboardSearch.toLowerCase())
-    )
-  }
-  keyExtractor={(item) => item.uid}
-  renderItem={({ item }) => {
-    const isCurrentUser = item.uid === user?.uid;
+                  data={leaderboard
+                    .map((item, i) => ({ ...item, realIndex: i }))
+                    .filter((item) =>
+                      item.name.toLowerCase().includes(leaderboardSearch.toLowerCase())
+                    )
+                  }
+                  keyExtractor={(item) => item.uid}
+                  renderItem={({ item }) => {
+                    const isCurrentUser = item.uid === user?.uid;
 
-    let medal = '';
-    let color = '#fff';
+                    let medal = '';
+                    let color = '#fff';
 
-    if (item.realIndex === 0) {
-      medal = '🥇';
-      color = '#FFD700';
-    } else if (item.realIndex === 1) {
-      medal = '🥈';
-      color = '#C0C0C0';
-    } else if (item.realIndex === 2) {
-      medal = '🥉';
-      color = '#CD7F32';
-    }
+                    if (item.realIndex === 0) {
+                      medal = '🥇';
+                      color = '#FFD700';
+                    } else if (item.realIndex === 1) {
+                      medal = '🥈';
+                      color = '#C0C0C0';
+                    } else if (item.realIndex === 2) {
+                      medal = '🥉';
+                      color = '#CD7F32';
+                    }
 
-    return (
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginBottom: 10,
-          backgroundColor: isCurrentUser
-            ? 'rgba(255,255,255,0.1)'
-            : 'rgba(255,255,255,0.05)',
-          borderRadius: 10,
-          padding: 10,
-          borderWidth: isCurrentUser ? 1 : 0,
-          borderColor: isCurrentUser ? '#FFD700' : 'transparent',
-        }}
-      >
-        <Text style={{ fontSize: 18, width: 30, color }}>
-          {medal || item.realIndex + 1}
-        </Text>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              color: isCurrentUser ? '#FFD700' : '#fff',
-              fontWeight: isCurrentUser ? 'bold' : 'normal',
-              fontSize: 15,
-              fontFamily: 'Montserrat-SemiBold',
-            }}
-          >
-            {item.name}
-          </Text>
-          <Text style={{ color: '#ccc', fontSize: 13 }}>
-            Points: {item.points} | Completed: {item.completedCount}
-          </Text>
-        </View>
-      </View>
-    );
-  }}
-/>
-
-
+                    return (
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          marginBottom: 10,
+                          backgroundColor: isCurrentUser
+                            ? 'rgba(255,255,255,0.1)'
+                            : 'rgba(255,255,255,0.05)',
+                          borderRadius: 10,
+                          padding: 10,
+                          borderWidth: isCurrentUser ? 1 : 0,
+                          borderColor: isCurrentUser ? '#FFD700' : 'transparent',
+                        }}
+                      >
+                        <Text style={{ fontSize: 18, width: 30, color }}>
+                          {medal || item.realIndex + 1}
+                        </Text>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              color: isCurrentUser ? '#FFD700' : '#fff',
+                              fontWeight: isCurrentUser ? 'bold' : 'normal',
+                              fontSize: 15,
+                              fontFamily: 'Montserrat-SemiBold',
+                            }}
+                          >
+                            {item.name}
+                          </Text>
+                          <Text style={{ color: '#ccc', fontSize: 13 }}>
+                            Points: {item.points} | Completed: {item.completedCount}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  }}
+                />
 
                 <TouchableOpacity
                   style={[styles.menuButton, { marginTop: 10 }]}
@@ -1406,16 +1442,13 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
             </View>
           </Modal>
 
-
-          {/* Evidence Modal */}
           <Modal
             visible={evidenceModalVisible}
             transparent={true}
             animationType="fade"
-            onRequestClose={() => setEvidenceModalVisible(false)} // Ensure the modal can be dismissed
+            onRequestClose={() => setEvidenceModalVisible(false)}
           >
             <View style={styles.evidenceModalContainer}>
-              {/* Close Button */}
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setEvidenceModalVisible(false)}
@@ -1423,7 +1456,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                 <Feather name="x" size={24} color="#fff" />
               </TouchableOpacity>
 
-              {/* Display Evidence */}
               {selectedEvidence?.type === "video" ? (
                 <View style={styles.videoContainer}>
                   <ActivityIndicator size="large" color="#fff" />
@@ -1481,7 +1513,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
           </Modal>
         </View>
 
-        {/* Timed Out Modal */}
         <Modal
           visible={timedOutModalVisible}
           transparent
@@ -1504,45 +1535,42 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
           </View>
         </Modal>
         <Modal
-  visible={likeModalVisible}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setLikeModalVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={[styles.modalContainer, { maxHeight: 400 }]}>
-      <Text style={styles.modalTitle}>👍 Liked By</Text>
+          visible={likeModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setLikeModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContainer, { maxHeight: 400 }]}>
+              <Text style={styles.modalTitle}>👍 Liked By</Text>
 
-      <FlatList
-        data={likedUsers}
-        keyExtractor={(item, index) => index.toString()}
-        style={{ marginBottom: 10 }}
-        contentContainerStyle={{ paddingVertical: 5 }}
-        renderItem={({ item }) => (
-          <Text style={{
-            fontSize: 17,
-            color: '#fff',
-            fontFamily: 'Montserrat-SemiBold',
-            marginBottom: 10
-          }}>
-            • {item}
-          </Text>
-        )}
-      />
+              <FlatList
+                data={likedUsers}
+                keyExtractor={(item, index) => index.toString()}
+                style={{ marginBottom: 10 }}
+                contentContainerStyle={{ paddingVertical: 5 }}
+                renderItem={({ item }) => (
+                  <Text style={{
+                    fontSize: 17,
+                    color: '#fff',
+                    fontFamily: 'Montserrat-SemiBold',
+                    marginBottom: 10
+                  }}>
+                    • {item}
+                  </Text>
+                )}
+              />
 
-      <TouchableOpacity
-        style={styles.menuButton}
-        onPress={() => setLikeModalVisible(false)}
-      >
-        <Text style={styles.menuButtonText}>Close</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={() => setLikeModalVisible(false)}
+              >
+                <Text style={styles.menuButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
-
-
-        {/* Confirm Delete Modal */}
         <Modal
           visible={deleteConfirmVisible}
           transparent
@@ -1579,9 +1607,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
           </View>
         </Modal>
 
-
-
-
         <Modal visible={sidebarVisible} transparent animationType="slide" onRequestClose={() => setSidebarVisible(false)}>
           <View style={{ flex: 1, flexDirection: 'row' }}>
             <View style={{
@@ -1616,12 +1641,12 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                 handleLogout();
               }}>
                 <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
-  setSidebarVisible(false);
-  routerInstance.push('/declined');
-}}>
-  <Feather name="slash" size={20} color="#fff" />
-  <Text style={{ color: '#fff', marginLeft: 10 }}>Declined Dares</Text>
-</TouchableOpacity>
+                  setSidebarVisible(false);
+                  routerInstance.push('/declined');
+                }}>
+                  <Feather name="slash" size={20} color="#fff" />
+                  <Text style={{ color: '#fff', marginLeft: 10 }}>Declined Dares</Text>
+                </TouchableOpacity>
 
                 <Feather name="log-out" size={20} color="#fff" />
                 <Text style={{ color: '#fff', marginLeft: 10 }}>Logout</Text>
@@ -1632,7 +1657,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
         </Modal>
 
       </LinearGradient>
-      {/* Confirm Accept Modal */}
       <Modal
         visible={confirmAcceptVisible}
         transparent
@@ -1664,7 +1688,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
         </View>
       </Modal>
 
-      {/* Confirm Decline Modal */}
       <Modal
         visible={confirmDeclineVisible}
         transparent
@@ -1691,7 +1714,6 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
                 });
                 setConfirmDeclineVisible(false);
               }}
-
             >
               <Text style={styles.menuButtonText}>Yes, Decline</Text>
             </TouchableOpacity>
@@ -1704,13 +1726,10 @@ await update(ref(db, `users/${user.uid}/acceptedDares/${dareId}`), {
           </View>
         </View>
       </Modal>
-
     </>
   );
 }
 
-
-//--- Stylesheet ---
 const styles = StyleSheet.create<{
   gradient: ViewStyle;
   loadingContainer: ViewStyle;
@@ -2042,18 +2061,16 @@ const styles = StyleSheet.create<{
   },
 
   completedText: {
-  marginTop: 8,
-  fontStyle: 'italic',
-  color: '#4AC29A',
-  fontFamily: 'Montserrat-SemiBold',
-  fontWeight: '700',
-  fontSize: 16,
-  textShadowColor: 'rgba(74, 194, 154, 0.6)',
-  textShadowOffset: { width: 1, height: 1 },
-  textShadowRadius: 3,
-},
-
-
+    marginTop: 8,
+    fontStyle: 'italic',
+    color: '#4AC29A',
+    fontFamily: 'Montserrat-SemiBold',
+    fontWeight: '700',
+    fontSize: 16,
+    textShadowColor: 'rgba(74, 194, 154, 0.6)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
 
   expiresText: {
     marginTop: 8,
@@ -2110,7 +2127,6 @@ const styles = StyleSheet.create<{
     marginLeft: 8
   },
 
-  // Modals
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
@@ -2127,9 +2143,7 @@ const styles = StyleSheet.create<{
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     ...(isWeb ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {})
-    
   },
-
 
   modalHeader: {
     flexDirection: 'row',
@@ -2145,14 +2159,13 @@ const styles = StyleSheet.create<{
     fontSize: 26,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#FFD700', // gold
+    color: '#FFD700',
     marginBottom: 20,
     textShadowColor: 'rgba(0, 0, 0, 0.7)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
     fontFamily: 'Montserrat-SemiBold',
   },
-
 
   commentsList: {
     flexGrow: 1
@@ -2309,5 +2322,4 @@ const styles = StyleSheet.create<{
     color: '#aaa',
     marginTop: 2,
   }
-
 });

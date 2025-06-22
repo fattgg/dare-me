@@ -17,6 +17,8 @@ import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const isWeb = Platform.OS === 'web';
+const CATEGORY_OPTIONS = ['Fitness', 'Social', 'Adventure'];
+const DIFFICULTY_OPTIONS = ['Easy', 'Medium', 'Hard'];
 
 export default function CreateDare() {
   const [fontsLoaded] = useFonts({
@@ -29,11 +31,15 @@ export default function CreateDare() {
   const [challenge, setChallenge] = useState('');
   const [reward, setReward] = useState('');
   const [criteria, setCriteria] = useState('');
+  const [category, setCategory] = useState('');
+  const [difficulty, setDifficulty] = useState('');
   const [focusField, setFocusField] = useState<string | null>(null);
   const [errors, setErrors] = useState({
     challenge: false,
     reward: false,
     criteria: false,
+    category: false,
+    difficulty: false,
   });
 
   const [successModalVisible, setSuccessModalVisible] = useState(false);
@@ -45,11 +51,13 @@ export default function CreateDare() {
       challenge: !challenge.trim(),
       reward: !reward.trim(),
       criteria: !criteria.trim(),
+      category: !category,
+      difficulty: !difficulty,
     };
 
     setErrors(newErrors);
 
-    if (newErrors.challenge || newErrors.reward || newErrors.criteria) {
+    if (newErrors.challenge || newErrors.reward || newErrors.criteria || newErrors.category || newErrors.difficulty) {
       return;
     }
 
@@ -66,6 +74,8 @@ export default function CreateDare() {
         challenge,
         reward,
         criteria: criteriaArray,
+        category,
+        difficulty,
         userId: user.uid,
         username: user.email || 'Anonymous',
         createdAt: new Date().toISOString(),
@@ -74,7 +84,9 @@ export default function CreateDare() {
       setChallenge('');
       setReward('');
       setCriteria('');
-      setErrors({ challenge: false, reward: false, criteria: false });
+      setCategory('');
+      setDifficulty('');
+      setErrors({ challenge: false, reward: false, criteria: false, category: false, difficulty: false });
 
       setSuccessModalVisible(true);
     } catch (error) {
@@ -89,6 +101,42 @@ export default function CreateDare() {
         paddingVertical: width > 900 ? 40 : 20,
       }]}>
         <Text style={styles.title}>Post a Dare</Text>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}>
+          {CATEGORY_OPTIONS.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              style={{
+                padding: 10,
+                marginHorizontal: 5,
+                borderRadius: 20,
+                backgroundColor: category === cat ? '#6A0DAD' : '#eee',
+              }}
+              onPress={() => setCategory(cat)}
+            >
+              <Text style={{ color: category === cat ? '#fff' : '#333' }}>{cat}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {errors.category && <Text style={styles.errorText}>Category is required.</Text>}
+
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}>
+          {DIFFICULTY_OPTIONS.map((level) => (
+            <TouchableOpacity
+              key={level}
+              style={{
+                padding: 10,
+                marginHorizontal: 5,
+                borderRadius: 20,
+                backgroundColor: difficulty === level ? '#6A0DAD' : '#eee',
+              }}
+              onPress={() => setDifficulty(level)}
+            >
+              <Text style={{ color: difficulty === level ? '#fff' : '#333' }}>{level}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {errors.difficulty && <Text style={styles.errorText}>Difficulty is required.</Text>}
 
         <TextInput
           style={[styles.input, {

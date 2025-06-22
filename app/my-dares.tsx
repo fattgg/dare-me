@@ -186,10 +186,20 @@ export default function MyDares() {
           user?.uid &&
           item.acceptedBy[user.uid] && (
             <>
+              {/* Kjo është pjesa që ndryshohet */}
               {item.status === 'in-progress' && (
                 <TouchableOpacity
                   style={styles.actionButton}
-                  onPress={() => handleMarkAsCompleted(item)}
+                  onPress={() => {
+                    if (!item.evidence) {
+                      Alert.alert(
+                        'Evidence Required',
+                        'You must upload evidence before marking this dare as completed.'
+                      );
+                      return;
+                    }
+                    handleMarkAsCompleted(item);
+                  }}
                 >
                   <Feather name="check" size={16} color="#fff" style={styles.icon} />
                   <Text style={styles.buttonText}>Mark as Completed</Text>

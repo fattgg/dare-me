@@ -1,15 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { auth } from '../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 
 // Import the logo image
 const logo = require('../assets/images/logo-1-dareme.png');
 
 export default function Home() {
-  const navigation = useNavigation();
+  const router = useRouter();
 
   // Animation value for fading out the logo
   const fadeOutAnim = useRef(new Animated.Value(1)).current;
@@ -37,9 +37,9 @@ export default function Home() {
         }).start(() => {
           // Navigate to the correct screen based on user's auth state
           if (user) {
-            navigation.replace('challenges'); // If user is logged in
+            router.replace('/challenges'); // If user is logged in
           } else {
-            navigation.replace('login'); // If user is not logged in
+            router.replace('/login'); // If user is not logged in
           }
         });
       }, 2000); // Delay of 2 seconds
@@ -50,16 +50,18 @@ export default function Home() {
   }, []);
 
   return (
-    // Background gradient from purple to lavender
-    <LinearGradient colors={['#4B0082', '#B788C4']} style={styles.gradient}>
-      {/* Wrapper for the animated logo view with fading effect */}
-      <Animated.View style={[styles.container, { opacity: fadeOutAnim }]}>
-        {/* Animated logo with scaling effect */}
-        <Animated.View style={{ transform: [{ scale: logoScale }] }}>
-          <Image source={logo} style={styles.logo} />
+    <View style={{ flex: 1 }}>
+      {/* Background gradient from purple to lavender */}
+      <LinearGradient colors={['#4B0082', '#B788C4']} style={styles.gradient}>
+        {/* Wrapper for the animated logo view with fading effect */}
+        <Animated.View style={[styles.container, { opacity: fadeOutAnim }]}>
+          {/* Animated logo with scaling effect */}
+          <Animated.View style={{ transform: [{ scale: logoScale }] }}>
+            <Image source={logo} style={styles.logo} />
+          </Animated.View>
         </Animated.View>
-      </Animated.View>
-    </LinearGradient>
+      </LinearGradient>
+    </View>
   );
 }
 

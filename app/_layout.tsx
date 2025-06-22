@@ -98,23 +98,23 @@ export default function Layout() {
           }}
         />
         <Stack.Screen
-  name="profile"
-  options={{
+          name="profile"
+          options={{
             title: '', // Header title
             animation: 'fade', // Smooth transition
             headerShown: false, // Fullscreen view without header
           }}
-/>
+        />
         <Stack.Screen
-  name="declined"
-  options={{
+          name="declined"
+          options={{
             title: '', // Header title
             animation: 'fade', // Smooth transition
             headerShown: false, // Fullscreen view without header
           }}
-/>
+        />
       </Stack>
-      
+
     </GestureHandlerRootView>
   );
 }
