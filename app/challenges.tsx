@@ -1,3 +1,5 @@
+"use client"
+
 // challenges.tsx
 
 import React, { useEffect, useState, useRef } from 'react';
@@ -17,6 +19,7 @@ import {
   ViewStyle,
   TextStyle,
   Button,
+  ScrollView,
 } from 'react-native';
 import { auth, db } from '../firebaseConfig';
 import { ref, onValue, update, remove, push, get } from 'firebase/database';
@@ -654,6 +657,7 @@ export default function Challenges() {
                   setSelectedDareForMenu(item.id);
                   setMenuVisible(true);
                 }}
+                style={styles.menuButton}
               >
                 <Feather name="more-vertical" size={22} color="#fff" />
               </TouchableOpacity>
@@ -661,36 +665,21 @@ export default function Challenges() {
           </View>
           <Text style={styles.dareText}>Challenge: {item.challenge}</Text>
           <Text style={styles.dareText}>Reward: {item.reward}</Text>
-          <View style={{
-            marginTop: 10,
-            padding: 10,
-            borderRadius: 10,
-            backgroundColor: 'rgba(255,255,255,0.04)',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.08)'
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-              <Feather name="user" size={16} color="#ccc" style={{ marginRight: 6 }} />
+          <View style={styles.userInfoContainer}>
+            <View style={styles.userInfoRow}>
+              <Feather name="user" size={16} color="#E8D5FF" style={{ marginRight: 8 }} />
               <Text style={styles.statusText}>
-                Posted by: <Text style={{ color: '#fff' }}>{item.username || 'Anonymous'}</Text>
+                Posted by: <Text style={styles.usernameText}>{item.username || 'Anonymous'}</Text>
               </Text>
             </View>
 
             {item.userId !== user?.uid && (
               <TouchableOpacity
                 onPress={() => routerInstance.push(`/profile?uid=${item.userId}`)}
-                style={{
-                  alignSelf: 'flex-start',
-                  backgroundColor: '#5A189A',
-                  paddingVertical: 4,
-                  paddingHorizontal: 10,
-                  borderRadius: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                }}
+                style={styles.profileButton}
               >
                 <Feather name="arrow-right" size={14} color="#fff" style={{ marginRight: 6 }} />
-                <Text style={{ color: '#fff', fontFamily: 'Montserrat-SemiBold', fontSize: 12 }}>
+                <Text style={styles.profileButtonText}>
                   View Profile
                 </Text>
               </TouchableOpacity>
@@ -699,37 +688,22 @@ export default function Challenges() {
 
           <Text style={styles.statusText}>
             Status:{" "}
-            {/* Shfaq "Completed" vetëm për përdoruesin që e ka përfunduar */}
-            {item.status === "completed" && item.acceptedBy && item.acceptedBy[user?.uid]
-              ? "Completed"
-              : item.status === "in-progress" && item.acceptedBy && item.acceptedBy[user?.uid]
-                ? "In Progress"
-                : "Available"}
+            <Text style={styles.statusValue}>
+              {item.status === "completed" && item.acceptedBy && item.acceptedBy[user?.uid]
+                ? "Completed"
+                : item.status === "in-progress" && item.acceptedBy && item.acceptedBy[user?.uid]
+                  ? "In Progress"
+                  : "Available"}
+            </Text>
           </Text>
 
-
-          <View
-            style={[
-              styles.row,
-              isSmallScreen && { flexDirection: "column", alignItems: "flex-start" },
-            ]}
-          >
-            <View
-              style={[
-                styles.likeContainer,
-                isSmallScreen && { width: "100%", marginBottom: 5 },
-              ]}
-            >
+          <View style={[styles.row, isSmallScreen && styles.rowSmall]}>
+            <View style={[styles.likeContainer, isSmallScreen && styles.likeContainerSmall]}>
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => fetchLikedUsers(item.likedBy || [])}
               >
-                <Feather
-                  name="users"
-                  size={16}
-                  color="#fff"
-                  styles={styles.actionIcon}
-                />
+                <Feather name="users" size={16} color="#fff" style={styles.actionIcon} />
                 <Text style={styles.actionText}>
                   {item.likes} {item.likes === 1 ? 'Like' : 'Likes'}
                 </Text>
@@ -739,16 +713,11 @@ export default function Challenges() {
                 <TouchableOpacity
                   style={[
                     styles.actionButton,
-                    item.likedBy?.includes(user?.uid) && { backgroundColor: '#ff6b6b' }
+                    item.likedBy?.includes(user?.uid) && styles.likedButton
                   ]}
                   onPress={() => handleLikeDare(item.id, item.likedBy || [])}
                 >
-                  <Feather
-                    name="thumbs-up"
-                    size={16}
-                    color="#fff"
-                    styles={styles.actionIcon}
-                  />
+                  <Feather name="thumbs-up" size={16} color="#fff" style={styles.actionIcon} />
                   <Text style={styles.actionText}>
                     {item.likedBy?.includes(user?.uid) ? 'Unlike' : 'Like'}
                   </Text>
@@ -759,18 +728,13 @@ export default function Challenges() {
               style={styles.actionButton}
               onPress={() => openComments(item.id)}
             >
-              <Feather
-                name="message-circle"
-                size={16}
-                color="#fff"
-                styles={styles.actionIcon}
-              />
+              <Feather name="message-circle" size={16} color="#fff" style={styles.actionIcon} />
               <Text style={styles.actionText}>Comments</Text>
             </TouchableOpacity>
           </View>
 
           {!isOwner && (!item.acceptedBy || !item.acceptedBy[user?.uid]) && (!item.declinedBy || !item.declinedBy[user?.uid]) && (
-            <View style={[styles.row, isSmallScreen && { flexDirection: "column", alignItems: "flex-start" }]}>
+            <View style={[styles.row, isSmallScreen && styles.rowSmall]}>
               <TouchableOpacity
                 style={styles.acceptButton}
                 onPress={() => {
@@ -778,7 +742,7 @@ export default function Challenges() {
                   setConfirmAcceptVisible(true);
                 }}
               >
-                <Feather name="check" size={16} color="#fff" styles={styles.actionIcon} />
+                <Feather name="check" size={16} color="#fff" style={styles.actionIcon} />
                 <Text style={styles.acceptText}>Accept</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -788,12 +752,11 @@ export default function Challenges() {
                   setConfirmDeclineVisible(true);
                 }}
               >
-                <Feather name="x" size={16} color="#fff" styles={styles.actionIcon} />
+                <Feather name="x" size={16} color="#fff" style={styles.actionIcon} />
                 <Text style={styles.rejectText}>Decline</Text>
               </TouchableOpacity>
             </View>
           )}
-
 
           {item.status === "in-progress" &&
             isAccepted &&
@@ -808,12 +771,7 @@ export default function Challenges() {
                 onPress={() => handleUploadEvidence(item.id)}
                 disabled={isLoading}
               >
-                <Feather
-                  name="upload"
-                  size={16}
-                  color="#fff"
-                  styles={styles.actionIcon}
-                />
+                <Feather name="upload" size={16} color="#fff" style={styles.actionIcon} />
                 <Text style={styles.uploadButtonText}>Upload Evidence</Text>
               </TouchableOpacity>
             ))}
@@ -855,8 +813,8 @@ export default function Challenges() {
               {item.aiAnalysis && (
                 <View style={styles.aiAnalysisContainer}>
                   <Text style={styles.aiAnalysisTitle}>AI Analysis:</Text>
-                  <Text>Tags: {item.aiAnalysis.tags?.join(', ') || 'No tags available'}</Text>
-                  <Text>Description: {item.aiAnalysis.description || 'No description available'}</Text>
+                  <Text style={styles.aiAnalysisText}>Tags: {item.aiAnalysis.tags?.join(', ') || 'No tags available'}</Text>
+                  <Text style={styles.aiAnalysisText}>Description: {item.aiAnalysis.description || 'No description available'}</Text>
                 </View>
               )}
             </View>
@@ -882,46 +840,44 @@ export default function Challenges() {
 
   if (!isReady || isLoading) {
     return (
-      <LinearGradient colors={['#4B0082', '#B788C4']} style={styles.loadingContainer}>
+      <LinearGradient colors={['#1a0033', '#4B0082', '#8A2BE2', '#DA70D6']} style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#fff" />
 
         <Modal visible={sidebarVisible} transparent animationType="slide" onRequestClose={() => setSidebarVisible(false)}>
           <View style={{ flex: 1, flexDirection: 'row' }}>
-            <View style={{
-              width: 250,
-              backgroundColor: '#350064',
-              paddingVertical: 40,
-              paddingHorizontal: 20
-            }}>
-              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+            <LinearGradient
+              colors={['#2D1B69', '#1a0033']}
+              style={styles.sidebarContainer}
+            >
+              <TouchableOpacity style={styles.sidebarItem} onPress={() => {
                 setSidebarVisible(false);
                 routerInstance.push('/profile');
               }}>
                 <Feather name="user" size={20} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 10 }}>My Profile</Text>
+                <Text style={styles.sidebarText}>My Profile</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+              <TouchableOpacity style={styles.sidebarItem} onPress={() => {
                 setSidebarVisible(false);
                 setLeaderboardVisible(true);
               }}>
                 <Feather name="bar-chart" size={20} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 10 }}>Leaderboard</Text>
+                <Text style={styles.sidebarText}>Leaderboard</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+              <TouchableOpacity style={styles.sidebarItem} onPress={() => {
                 setSidebarVisible(false);
                 routerInstance.push('/my-dares');
               }}>
                 <Feather name="list" size={20} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 10 }}>My Accepted Dares</Text>
+                <Text style={styles.sidebarText}>My Accepted Dares</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ marginTop: 30 }} onPress={() => {
+              <TouchableOpacity style={styles.sidebarItem} onPress={() => {
                 setSidebarVisible(false);
                 handleLogout();
               }}>
                 <Feather name="log-out" size={20} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 10 }}>Logout</Text>
+                <Text style={styles.sidebarText}>Logout</Text>
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
             <TouchableOpacity style={{ flex: 1 }} onPress={() => setSidebarVisible(false)} />
           </View>
         </Modal>
@@ -939,793 +895,784 @@ export default function Challenges() {
         />
       </Head>
       <LinearGradient
-        colors={['#4B0082', '#B788C4']}
+        colors={['#1a0033', '#4B0082', '#8A2BE2', '#DA70D6']}
         style={styles.gradient}
       >
-
-        <TouchableOpacity onPress={() => setSidebarVisible(true)} style={{ position: 'absolute', top: 10, left: 10, zIndex: 99 }}>
-          <Feather name="menu" size={28} color="#fff" />
+        <TouchableOpacity onPress={() => setSidebarVisible(true)} style={styles.menuButtonFixed}>
+          <LinearGradient
+            colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+            style={styles.menuButtonGradient}
+          >
+            <Feather name="menu" size={28} color="#fff" />
+          </LinearGradient>
         </TouchableOpacity>
 
-        <View style={styles.container}>
-          <View style={styles.headerContainer}>
-            <Feather
-              name="award"
-              size={40}
-              color="#fff"
-            />
-            <Text style={styles.title}>Available Dares</Text>
-            <View style={{
-              marginTop: 20,
-              marginBottom: 20,
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              paddingVertical: 10,
-              paddingHorizontal: 16,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: 'rgba(255, 255, 255, 0.15)',
-              flexDirection: 'row',
-              alignItems: 'center',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 3 },
-              shadowOpacity: 0.3,
-              shadowRadius: 6,
-            }}>
-              <Feather name="star" size={20} color="#FFD700" style={{ marginRight: 10 }} />
-              <Text style={{
-                color: '#FFD700',
-                fontSize: 16,
-                fontFamily: 'Montserrat-SemiBold',
-                textShadowColor: 'rgba(0,0,0,0.5)',
-                textShadowOffset: { width: 1, height: 1 },
-                textShadowRadius: 2,
-              }}>
-                Your Points: {points}
-              </Text>
-            </View>
-
-            {badges.length > 0 && (
-              <Text style={{ color: '#fff', fontStyle: 'italic', marginTop: 5 }}>
-                🏅 Badges: {badges.join(', ')}
-              </Text>
-            )}
-
-            <TextInput
-              placeholder="Search dare or email..."
-              placeholderTextColor="#ccc"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              style={[styles.input, { marginBottom: 15 }]}
-            />
-
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginVertical: 10 }}>
-              {CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={{
-                    padding: 10,
-                    marginHorizontal: 5,
-                    borderRadius: 20,
-                    backgroundColor: selectedCategory === cat ? '#4B0082' : '#eee',
-                  }}
-                  onPress={() => setSelectedCategory(cat)}
-                >
-                  <Text style={{ color: selectedCategory === cat ? '#fff' : '#333' }}>{cat}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-          <View style={[styles.buttonContainer, isSmallScreen && { flexDirection: 'column' }]}>
-            <TouchableOpacity style={[styles.mainButton, isSmallScreen && { width: '100%' }]} onPress={() => routerInstance.push('/create-dare')}>
-              <Feather
-                name="plus-circle"
-                size={18}
-                color="#fff"
-                styles={styles.buttonIcon}
-              />
-              <Text style={styles.buttonText}>Post a Dare</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.mainButton}
-              onPress={() => routerInstance.push("/notifications")}
-            >
-              <Feather
-                name="bell"
-                size={18}
-                color="#fff"
-                styles={styles.buttonIcon}
-              />
-              <Text style={styles.buttonText}>Notifications</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{
-            backgroundColor: 'rgba(255,255,255,0.07)',
-            borderRadius: 16,
-            padding: 18,
-            marginBottom: 18,
-            alignItems: 'center'
-          }}>
-            <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Montserrat-SemiBold', marginBottom: 10 }}>
-              🎲 Get a Random Dare
-            </Text>
-            <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-              {CATEGORIES.filter(c => c !== 'All').map(cat => (
-                <TouchableOpacity
-                  key={cat}
-                  style={{
-                    padding: 8,
-                    marginHorizontal: 4,
-                    borderRadius: 16,
-                    backgroundColor: randomCategory === cat ? '#4B0082' : '#eee',
-                  }}
-                  onPress={() => setRandomCategory(cat)}
-                >
-                  <Text style={{ color: randomCategory === cat ? '#fff' : '#333' }}>{cat}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-              {DIFFICULTY_OPTIONS.map(level => (
-                <TouchableOpacity
-                  key={level}
-                  style={{
-                    padding: 8,
-                    marginHorizontal: 4,
-                    borderRadius: 16,
-                    backgroundColor: randomDifficulty === level ? '#4B0082' : '#eee',
-                  }}
-                  onPress={() => setRandomDifficulty(level)}
-                >
-                  <Text style={{ color: randomDifficulty === level ? '#fff' : '#333' }}>{level}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity
-              style={{
-                backgroundColor: '#6A0DAD',
-                paddingVertical: 10,
-                paddingHorizontal: 24,
-                borderRadius: 10,
-                marginTop: 5,
-                opacity: randomCategory && randomDifficulty ? 1 : 0.5
-              }}
-              onPress={handleGetRandomDare}
-              disabled={!randomCategory || !randomDifficulty || randomLoading}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                {randomLoading ? 'Loading...' : 'Get Random Dare'}
-              </Text>
-            </TouchableOpacity>
-            {randomError ? (
-              <Text style={{ color: 'red', marginTop: 10 }}>{randomError}</Text>
-            ) : null}
-            {randomDare && (
-              <View style={{
-                marginTop: 18,
-                backgroundColor: 'rgba(255,255,255,0.09)',
-                borderRadius: 12,
-                padding: 14,
-                width: '100%',
-                alignItems: 'center'
-              }}>
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{randomDare.challenge}</Text>
-                <Text style={{ color: '#fff', marginTop: 6 }}>Reward: {randomDare.reward}</Text>
-                <Text style={{ color: '#fff', marginTop: 6 }}>Category: {randomDare.category}</Text>
-                <Text style={{ color: '#fff', marginTop: 6 }}>Difficulty: {randomDare.difficulty}</Text>
-                <Text style={{ color: '#fff', marginTop: 6, fontStyle: 'italic' }}>
-                  Criteria: {Array.isArray(randomDare.criteria) ? randomDare.criteria.join(', ') : randomDare.criteria}
+        <ScrollView 
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.container}>
+            <View style={styles.headerContainer}>
+              <LinearGradient
+                colors={['#FFD700', '#FFA500']}
+                style={styles.iconContainer}
+              >
+                <Feather name="award" size={40} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.title}>Available Dares</Text>
+              
+              <LinearGradient
+                colors={['rgba(255, 215, 0, 0.2)', 'rgba(255, 165, 0, 0.1)']}
+                style={styles.pointsContainer}
+              >
+                <Feather name="star" size={20} color="#FFD700" style={{ marginRight: 10 }} />
+                <Text style={styles.pointsText}>
+                  Your Points: {points}
                 </Text>
-                {/* Accept/Decline Buttons */}
-                <View style={{ flexDirection: 'row', marginTop: 16, gap: 12 }}>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: '#4CAF50',
-                      paddingVertical: 8,
-                      paddingHorizontal: 18,
-                      borderRadius: 8,
-                      marginRight: 8,
-                    }}
-                    onPress={() => {
-                      setDareIdToConfirm(randomDare.id);
-                      setConfirmAcceptVisible(true);
-                    }}
-                  >
-                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>Accept</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: '#ff6b6b',
-                      paddingVertical: 8,
-                      paddingHorizontal: 18,
-                      borderRadius: 8,
-                    }}
-                    onPress={() => {
-                      setDareIdToConfirm(randomDare.id);
-                      setConfirmDeclineVisible(true);
-                    }}
-                  >
-                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>Decline</Text>
-                  </TouchableOpacity>
+              </LinearGradient>
+
+              {badges.length > 0 && (
+                <View style={styles.badgesContainer}>
+                  <Text style={styles.badgesText}>
+                    🏅 Badges: {badges.join(', ')}
+                  </Text>
                 </View>
-              </View>
-            )}
-          </View>
+              )}
 
-          <FlatList
-            data={filteredDares.filter(
-              (d) =>
-                (d.challenge.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  (d.username || '').toLowerCase().includes(searchQuery.toLowerCase())) &&
-                !(d.declinedBy && d.declinedBy[user?.uid])
-            )}
-            keyExtractor={(i) => i.id}
-            renderItem={renderDare}
-            contentContainerStyle={styles.list}
-          />
-
-          <Modal visible={modalVisible} transparent animationType="slide">
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContainer}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Comments</Text>
-                  <TouchableOpacity onPress={() => setModalVisible(false)}>
-                    <Feather name="x"
-                      size={24}
-                      color="#fff"
-                    />
-                  </TouchableOpacity>
-                </View>
-                <FlatList
-                  ref={flatListRef}
-                  data={comments}
-                  keyExtractor={(c) => c.id}
-                  renderItem={({ item }) => (
-                    <View style={styles.commentItem}>
-                      <Text style={styles.commentAuthor}>{item.username}:</Text>
-                      <Text style={styles.commentText}>{item.text}</Text>
-                      <Text style={styles.commentTime}>{new Date(item.timestamp).toLocaleString()}</Text>
-
-                      <TouchableOpacity onPress={() => {
-                        setReplyToId(item.id);
-                        setReplyToText(item.text);
-                      }}>
-                        <Text style={{ color: '#ccc', fontSize: 13 }}>Reply</Text>
-                      </TouchableOpacity>
-
-                      {replies[item.id]?.map((reply) => (
-                        <View key={reply.id} style={{ marginLeft: 20, marginTop: 5 }}>
-                          <Text style={styles.commentAuthor}>{reply.username}:</Text>
-                          <Text style={styles.commentText}>{reply.text}</Text>
-                          <Text style={styles.commentTime}>{new Date(reply.timestamp).toLocaleString()}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                  contentContainerStyle={styles.commentsList}
-                  style={{ maxHeight: 300 }}
-                  showsVerticalScrollIndicator={true}
-                  getItemLayout={(data, index) => ({
-                    length: 85,
-                    offset: 85 * index,
-                    index,
-                  })}
-                  onScrollToIndexFailed={(info) => {
-                    setTimeout(() => {
-                      flatListRef.current?.scrollToOffset({
-                        offset: info.averageItemLength * info.index,
-                        animated: true,
-                      });
-                    }, 300);
-                  }}
+              <LinearGradient
+                colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.08)']}
+                style={styles.searchContainer}
+              >
+                <Feather name="search" size={20} color="#E8D5FF" style={styles.searchIcon} />
+                <TextInput
+                  placeholder="Search dare or email..."
+                  placeholderTextColor="rgba(232, 213, 255, 0.7)"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  style={styles.searchInput}
                 />
+              </LinearGradient>
 
-                <View style={styles.commentInputContainer}>
-                  <TextInput
-                    ref={commentInputRef}
-                    style={[styles.input, { minHeight: 45, textAlignVertical: 'top' }]}
-                    placeholder="Add a comment..."
-                    placeholderTextColor="#ccc"
-                    value={newComment}
-                    onChangeText={setNewComment}
-                    multiline
-                    onKeyPress={({ nativeEvent }) => {
-                      if (nativeEvent.key === 'Enter' && !nativeEvent.shiftKey) {
-                        nativeEvent.preventDefault?.();
-                        handleAddComment();
-                      }
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoriesScrollView}
+                contentContainerStyle={styles.categoriesContainer}
+              >
+                {CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryButton,
+                      selectedCategory === cat && styles.categoryButtonActive
+                    ]}
+                    onPress={() => setSelectedCategory(cat)}
+                  >
+                    <Text style={[
+                      styles.categoryText,
+                      selectedCategory === cat && styles.categoryTextActive
+                    ]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={[styles.buttonContainer, isSmallScreen && styles.buttonContainerSmall]}>
+              <TouchableOpacity 
+                style={[styles.mainButton, isSmallScreen && { width: '100%' }]} 
+                onPress={() => routerInstance.push('/create-dare')}
+              >
+                <LinearGradient
+                  colors={['#8A2BE2', '#6A0DAD']}
+                  style={styles.mainButtonGradient}
+                >
+                  <Feather name="plus-circle" size={18} color="#fff" style={styles.buttonIcon} />
+                  <Text style={styles.buttonText}>Post a Dare</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.mainButton}
+                onPress={() => routerInstance.push("/notifications")}
+              >
+                <LinearGradient
+                  colors={['#FF6B6B', '#FF4757']}
+                  style={styles.mainButtonGradient}
+                >
+                  <Feather name="bell" size={18} color="#fff" style={styles.buttonIcon} />
+                  <Text style={styles.buttonText}>Notifications</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <LinearGradient
+              colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)']}
+              style={styles.randomDareContainer}
+            >
+              <Text style={styles.randomDareTitle}>
+                🎲 Get a Random Dare
+              </Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.optionsScrollView}
+              >
+                {CATEGORIES.filter(c => c !== 'All').map(cat => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.optionButton,
+                      randomCategory === cat && styles.optionButtonActive
+                    ]}
+                    onPress={() => setRandomCategory(cat)}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      randomCategory === cat && styles.optionTextActive
+                    ]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.optionsScrollView}
+              >
+                {DIFFICULTY_OPTIONS.map(level => (
+                  <TouchableOpacity
+                    key={level}
+                    style={[
+                      styles.optionButton,
+                      randomDifficulty === level && styles.optionButtonActive
+                    ]}
+                    onPress={() => setRandomDifficulty(level)}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      randomDifficulty === level && styles.optionTextActive
+                    ]}>
+                      {level}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity
+                style={[
+                  styles.randomButton,
+                  (!randomCategory || !randomDifficulty) && styles.randomButtonDisabled
+                ]}
+                onPress={handleGetRandomDare}
+                disabled={!randomCategory || !randomDifficulty || randomLoading}
+              >
+                <LinearGradient
+                  colors={randomCategory && randomDifficulty ? ['#6A0DAD', '#8A2BE2'] : ['#666', '#888']}
+                  style={styles.randomButtonGradient}
+                >
+                  <Text style={styles.randomButtonText}>
+                    {randomLoading ? 'Loading...' : 'Get Random Dare'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              {randomError ? (
+                <Text style={styles.randomErrorText}>{randomError}</Text>
+              ) : null}
+              {randomDare && (
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                  style={styles.randomDareResult}
+                >
+                  <Text style={styles.randomDareChallenge}>{randomDare.challenge}</Text>
+                  <Text style={styles.randomDareDetail}>Reward: {randomDare.reward}</Text>
+                  <Text style={styles.randomDareDetail}>Category: {randomDare.category}</Text>
+                  <Text style={styles.randomDareDetail}>Difficulty: {randomDare.difficulty}</Text>
+                  <Text style={styles.randomDareCriteria}>
+                    Criteria: {Array.isArray(randomDare.criteria) ? randomDare.criteria.join(', ') : randomDare.criteria}
+                  </Text>
+                  <View style={styles.randomDareActions}>
+                    <TouchableOpacity
+                      style={styles.randomAcceptButton}
+                      onPress={() => {
+                        setDareIdToConfirm(randomDare.id);
+                        setConfirmAcceptVisible(true);
+                      }}
+                    >
+                      <Text style={styles.randomActionText}>Accept</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.randomDeclineButton}
+                      onPress={() => {
+                        setDareIdToConfirm(randomDare.id);
+                        setConfirmDeclineVisible(true);
+                      }}
+                    >
+                      <Text style={styles.randomActionText}>Decline</Text>
+                    </TouchableOpacity>
+                  </View>
+                </LinearGradient>
+              )}
+            </LinearGradient>
+
+            <FlatList
+              data={filteredDares.filter(
+                (d) =>
+                  (d.challenge.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (d.username || '').toLowerCase().includes(searchQuery.toLowerCase())) &&
+                  !(d.declinedBy && d.declinedBy[user?.uid])
+              )}
+              keyExtractor={(i) => i.id}
+              renderItem={renderDare}
+              contentContainerStyle={styles.list}
+              scrollEnabled={false}
+            />
+
+            <Modal visible={modalVisible} transparent animationType="slide">
+              <View style={styles.modalOverlay}>
+                <LinearGradient
+                  colors={['#2D1B69', '#1a0033']}
+                  style={styles.modalContainer}
+                >
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Comments</Text>
+                    <TouchableOpacity onPress={() => setModalVisible(false)}>
+                      <Feather name="x" size={24} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                  <FlatList
+                    ref={flatListRef}
+                    data={comments}
+                    keyExtractor={(c) => c.id}
+                    renderItem={({ item }) => (
+                      <View style={styles.commentItem}>
+                        <Text style={styles.commentAuthor}>{item.username}:</Text>
+                        <Text style={styles.commentText}>{item.text}</Text>
+                        <Text style={styles.commentTime}>{new Date(item.timestamp).toLocaleString()}</Text>
+
+                        <TouchableOpacity onPress={() => {
+                          setReplyToId(item.id);
+                          setReplyToText(item.text);
+                        }}>
+                          <Text style={styles.replyText}>Reply</Text>
+                        </TouchableOpacity>
+
+                        {replies[item.id]?.map((reply) => (
+                          <View key={reply.id} style={styles.replyContainer}>
+                            <Text style={styles.commentAuthor}>{reply.username}:</Text>
+                            <Text style={styles.commentText}>{reply.text}</Text>
+                            <Text style={styles.commentTime}>{new Date(reply.timestamp).toLocaleString()}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                    contentContainerStyle={styles.commentsList}
+                    style={styles.commentsListContainer}
+                    showsVerticalScrollIndicator={true}
+                    getItemLayout={(data, index) => ({
+                      length: 85,
+                      offset: 85 * index,
+                      index,
+                    })}
+                    onScrollToIndexFailed={(info) => {
+                      setTimeout(() => {
+                        flatListRef.current?.scrollToOffset({
+                          offset: info.averageItemLength * info.index,
+                          animated: true,
+                        });
+                      }, 300);
                     }}
                   />
 
-                  {replyToId && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setReplyToId(null);
-                        setReplyToText(null);
+                  <View style={styles.commentInputContainer}>
+                    <TextInput
+                      ref={commentInputRef}
+                      style={styles.commentInput}
+                      placeholder="Add a comment..."
+                      placeholderTextColor="#ccc"
+                      value={newComment}
+                      onChangeText={setNewComment}
+                      multiline
+                      onKeyPress={({ nativeEvent }) => {
+                        if (nativeEvent.key === 'Enter' && !nativeEvent.shiftKey) {
+                          nativeEvent.preventDefault?.();
+                          handleAddComment();
+                        }
                       }}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        backgroundColor: 'rgba(255,255,255,0.07)',
-                        paddingVertical: 6,
-                        paddingHorizontal: 12,
-                        borderRadius: 20,
-                        alignSelf: 'flex-start',
-                        marginTop: 8,
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.1)',
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: '#CCCCFF',
-                          fontFamily: 'Montserrat-SemiBold',
-                          fontSize: 14,
+                    />
+
+                    {replyToId && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setReplyToId(null);
+                          setReplyToText(null);
+                        }}
+                        style={styles.cancelReplyButton}
+                      >
+                        <Text style={styles.cancelReplyText}>
+                          Cancel Reply
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity style={styles.addCommentButton} onPress={handleAddComment}>
+                      <LinearGradient
+                        colors={['#6A0DAD', '#8A2BE2']}
+                        style={styles.addCommentGradient}
+                      >
+                        <Feather name="send" size={20} color="#fff" />
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </LinearGradient>
+              </View>
+            </Modal>
+
+            <Modal visible={menuVisible} transparent animationType="fade">
+              <View style={styles.menuModal}>
+                <LinearGradient
+                  colors={['#2D1B69', '#1a0033']}
+                  style={styles.menuContent}
+                >
+                  {editMode ? (
+                    <>
+                      <Text style={styles.menuTitle}>Edit Dare</Text>
+                      <TextInput style={styles.menuInput}
+                        value={editedChallenge}
+                        onChangeText={setEditedChallenge}
+                        placeholder="Challenge"
+                        placeholderTextColor="#ccc"
+                      />
+                      <TextInput style={styles.menuInput}
+                        value={editedReward}
+                        onChangeText={setEditedReward}
+                        placeholder="Reward"
+                        placeholderTextColor="#ccc"
+                      />
+                      <TouchableOpacity style={styles.menuButton}
+                        onPress={handleUpdateDare}>
+                        <Text style={styles.menuButtonText}>Save</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.menuButton, styles.cancelButton]}
+                        onPress={() => setEditMode(false)}>
+                        <Text style={styles.menuButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.menuTitle}>Options</Text>
+                      <TouchableOpacity style={styles.menuOption}
+                        onPress={() => startEditDare(selectedDareForMenu)}>
+                        <Feather name="edit" size={20} color="#fff" style={styles.menuIcon} />
+                        <Text style={styles.menuOptionText}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.menuOption}
+                        onPress={() => {
+                          setDareIdToDelete(selectedDareForMenu);
+                          setDeleteConfirmVisible(true);
                         }}
                       >
-                        Cancel Reply
-                      </Text>
-                    </TouchableOpacity>
+                        <Feather name="trash-2" size={20} color="#ff6b6b" style={styles.menuIcon} />
+                        <Text style={[styles.menuOptionText, styles.deleteText]}>Delete</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={[styles.menuButton, styles.closeButton]}
+                        onPress={() => setMenuVisible(false)}>
+                        <Text style={styles.menuButtonText}>Close</Text>
+                      </TouchableOpacity>
+                    </>
                   )}
-
-                  <TouchableOpacity style={styles.addCommentButton} onPress={handleAddComment}>
-                    <Feather name="send"
-                      size={20}
-                      color="#fff"
-                    />
-                  </TouchableOpacity>
-                </View>
+                </LinearGradient>
               </View>
-            </View>
-          </Modal>
+            </Modal>
 
-          <Modal visible={menuVisible} transparent animationType="fade">
-            <View style={styles.menuModal}>
-              <View style={styles.menuContent}>
-                {editMode ? (
-                  <>
-                    <Text style={styles.menuTitle}>Edit Dare</Text>
-                    <TextInput style={styles.menuInput}
-                      value={editedChallenge}
-                      onChangeText={setEditedChallenge}
-                      placeholder="Challenge"
-                      placeholderTextColor="#ccc"
+            <Modal
+              visible={leaderboardVisible}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setLeaderboardVisible(false)}
+            >
+              <View style={styles.modalOverlay}>
+                <LinearGradient
+                  colors={['#2D1B69', '#1a0033']}
+                  style={[styles.modalContainer, { maxHeight: 450 }]}
+                >
+                  <View style={styles.leaderboardHeader}>
+                    <Text style={styles.modalTitle}>🏆 Leaderboard</Text>
+                    <Text style={styles.leaderboardSubtitle}>
+                      See who's leading the dare challenge!
+                    </Text>
+                  </View>
+                  <TextInput
+                    placeholder="Search users..."
+                    placeholderTextColor="#ccc"
+                    value={leaderboardSearch}
+                    onChangeText={setLeaderboardSearch}
+                    style={[styles.input, { marginBottom: 15 }]}
+                  />
+
+                  <FlatList
+                    data={leaderboard
+                      .map((item, i) => ({ ...item, realIndex: i }))
+                      .filter((item) =>
+                        item.name.toLowerCase().includes(leaderboardSearch.toLowerCase())
+                      )
+                    }
+                    keyExtractor={(item) => item.uid}
+                    renderItem={({ item }) => {
+                      const isCurrentUser = item.uid === user?.uid;
+
+                      let medal = '';
+                      let color = '#fff';
+
+                      if (item.realIndex === 0) {
+                        medal = '🥇';
+                        color = '#FFD700';
+                      } else if (item.realIndex === 1) {
+                        medal = '🥈';
+                        color = '#C0C0C0';
+                      } else if (item.realIndex === 2) {
+                        medal = '🥉';
+                        color = '#CD7F32';
+                      }
+
+                      return (
+                        <LinearGradient
+                          colors={isCurrentUser 
+                            ? ['rgba(255,215,0,0.3)', 'rgba(255,215,0,0.1)']
+                            : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                          style={styles.leaderboardItem}
+                        >
+                          <Text style={[styles.leaderboardRank, { color }]}>
+                            {medal || item.realIndex + 1}
+                          </Text>
+                          <View style={styles.leaderboardInfo}>
+                            <Text style={[
+                              styles.leaderboardName,
+                              isCurrentUser && styles.leaderboardNameCurrent
+                            ]}>
+                              {item.name}
+                            </Text>
+                            <Text style={styles.leaderboardStats}>
+                              Points: {item.points} | Completed: {item.completedCount}
+                            </Text>
+                          </View>
+                        </LinearGradient>
+                      );
+                    }}
+                  />
+
+                  <TouchableOpacity
+                    style={[styles.menuButton, { marginTop: 10 }]}
+                    onPress={() => setLeaderboardVisible(false)}
+                  >
+                    <Text style={styles.menuButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </LinearGradient>
+              </View>
+            </Modal>
+
+            <Modal
+              visible={evidenceModalVisible}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setEvidenceModalVisible(false)}
+            >
+              <View style={styles.evidenceModalContainer}>
+                <TouchableOpacity
+                  style={styles.evidenceCloseButton}
+                  onPress={() => setEvidenceModalVisible(false)}
+                >
+                  <LinearGradient
+                    colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)']}
+                    style={styles.evidenceCloseGradient}
+                  >
+                    <Feather name="x" size={24} color="#fff" />
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                {selectedEvidence?.type === "video" ? (
+                  <View style={styles.videoContainer}>
+                    <ActivityIndicator size="large" color="#fff" />
+                    <Video
+                      source={{ uri: selectedEvidence.url }}
+                      shouldPlay
+                      useNativeControls
+                      style={styles.fullScreenVideo}
                     />
-                    <TextInput style={styles.menuInput}
-                      value={editedReward}
-                      onChangeText={setEditedReward}
-                      placeholder="Reward"
-                      placeholderTextColor="#ccc"
-                    />
-                    <TouchableOpacity style={styles.menuButton}
-                      onPress={handleUpdateDare}>
-                      <Text style={styles.menuButtonText}>Save
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.menuButton, styles.cancelButton]}
-                      onPress={() => setEditMode(false)}>
-                      <Text style={styles.menuButtonText}>Cancel
-                      </Text>
-                    </TouchableOpacity>
-                  </>
+                  </View>
                 ) : (
-                  <>
-                    <Text style={styles.menuTitle}>Options</Text>
-                    <TouchableOpacity style={styles.menuOption}
-                      onPress={() => startEditDare(selectedDareForMenu)}>
-                      <Feather name="edit"
-                        size={20}
-                        color="#fff"
-                        styles={styles.menuIcon}
-                      />
-                      <Text style={styles.menuOptionText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.menuOption}
-                      onPress={() => {
-                        setDareIdToDelete(selectedDareForMenu);
-                        setDeleteConfirmVisible(true);
+                  selectedEvidence && (
+                    <WebView
+                      source={{
+                        html: `
+                          <html>
+                            <head>
+                              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                              <style>
+                                body {
+                                  margin: 0;
+                                  padding: 0;
+                                  background: black;
+                                  display: flex;
+                                  justify-content: center;
+                                  align-items: center;
+                                  height: 100vh;
+                                }
+                                img {
+                                  max-width: 100%;
+                                  max-height: 100%;
+                                  object-fit: contain;
+                                }
+                              </style>
+                            </head>
+                            <body>
+                              <img src="${selectedEvidence.url}" />
+                            </body>
+                          </html>
+                        `,
                       }}
-                    >
-                      <Feather
-                        name="trash-2"
-                        size={20}
-                        color="#ff6b6b"
-                        styles={styles.menuIcon}
-                      />
-                      <Text style={[styles.menuOptionText, styles.deleteText]}>Delete</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={[styles.menuButton, styles.closeButton]}
-                      onPress={() => setMenuVisible(false)}>
-                      <Text style={styles.menuButtonText}>Close</Text>
-                    </TouchableOpacity>
-                  </>
+                      style={styles.fullScreenImage}
+                      onError={(e) => {
+                        console.error("WebView error:", e);
+                        Alert.alert(
+                          "Error",
+                          "Failed to load the image. It may have expired or is unavailable."
+                        );
+                        setEvidenceModalVisible(false);
+                      }}
+                    />
+                  )
                 )}
               </View>
+            </Modal>
+          </View>
+
+          <Modal
+            visible={timedOutModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setTimedOutModalVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <LinearGradient
+                colors={['#2D1B69', '#1a0033']}
+                style={styles.modalContainer}
+              >
+                <Text style={styles.modalTitle}>Timed Out</Text>
+                <Text style={[styles.commentText, { marginBottom: 15 }]}>
+                  You can no longer edit this dare because more than 2 minutes have passed.
+                </Text>
+                <TouchableOpacity
+                  style={styles.menuButton}
+                  onPress={() => setTimedOutModalVisible(false)}
+                >
+                  <Text style={styles.menuButtonText}>OK</Text>
+                </TouchableOpacity>
+              </LinearGradient>
             </View>
           </Modal>
 
           <Modal
-            visible={leaderboardVisible}
+            visible={likeModalVisible}
             transparent
-            animationType="slide"
-            onRequestClose={() => setLeaderboardVisible(false)}
+            animationType="fade"
+            onRequestClose={() => setLikeModalVisible(false)}
           >
             <View style={styles.modalOverlay}>
-              <View style={[styles.modalContainer, { maxHeight: 450 }]}>
-                <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                  <Text style={styles.modalTitle}>🏆 Leaderboard</Text>
-                  <Text style={{ color: '#ccc', fontSize: 13, fontStyle: 'italic' }}>
-                    See who's leading the dare challenge!
-                  </Text>
-                </View>
-                <TextInput
-                  placeholder="Search users..."
-                  placeholderTextColor="#ccc"
-                  value={leaderboardSearch}
-                  onChangeText={setLeaderboardSearch}
-                  style={[styles.input, { marginBottom: 15 }]}
-                />
+              <LinearGradient
+                colors={['#2D1B69', '#1a0033']}
+                style={[styles.modalContainer, { maxHeight: 400 }]}
+              >
+                <Text style={styles.modalTitle}>👍 Liked By</Text>
 
                 <FlatList
-                  data={leaderboard
-                    .map((item, i) => ({ ...item, realIndex: i }))
-                    .filter((item) =>
-                      item.name.toLowerCase().includes(leaderboardSearch.toLowerCase())
-                    )
-                  }
-                  keyExtractor={(item) => item.uid}
-                  renderItem={({ item }) => {
-                    const isCurrentUser = item.uid === user?.uid;
-
-                    let medal = '';
-                    let color = '#fff';
-
-                    if (item.realIndex === 0) {
-                      medal = '🥇';
-                      color = '#FFD700';
-                    } else if (item.realIndex === 1) {
-                      medal = '🥈';
-                      color = '#C0C0C0';
-                    } else if (item.realIndex === 2) {
-                      medal = '🥉';
-                      color = '#CD7F32';
-                    }
-
-                    return (
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          marginBottom: 10,
-                          backgroundColor: isCurrentUser
-                            ? 'rgba(255,255,255,0.1)'
-                            : 'rgba(255,255,255,0.05)',
-                          borderRadius: 10,
-                          padding: 10,
-                          borderWidth: isCurrentUser ? 1 : 0,
-                          borderColor: isCurrentUser ? '#FFD700' : 'transparent',
-                        }}
-                      >
-                        <Text style={{ fontSize: 18, width: 30, color }}>
-                          {medal || item.realIndex + 1}
-                        </Text>
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={{
-                              color: isCurrentUser ? '#FFD700' : '#fff',
-                              fontWeight: isCurrentUser ? 'bold' : 'normal',
-                              fontSize: 15,
-                              fontFamily: 'Montserrat-SemiBold',
-                            }}
-                          >
-                            {item.name}
-                          </Text>
-                          <Text style={{ color: '#ccc', fontSize: 13 }}>
-                            Points: {item.points} | Completed: {item.completedCount}
-                          </Text>
-                        </View>
-                      </View>
-                    );
-                  }}
+                  data={likedUsers}
+                  keyExtractor={(item, index) => index.toString()}
+                  style={{ marginBottom: 10 }}
+                  contentContainerStyle={{ paddingVertical: 5 }}
+                  renderItem={({ item }) => (
+                    <Text style={styles.likedUserText}>
+                      • {item}
+                    </Text>
+                  )}
                 />
 
                 <TouchableOpacity
-                  style={[styles.menuButton, { marginTop: 10 }]}
-                  onPress={() => setLeaderboardVisible(false)}
+                  style={styles.menuButton}
+                  onPress={() => setLikeModalVisible(false)}
                 >
                   <Text style={styles.menuButtonText}>Close</Text>
                 </TouchableOpacity>
-              </View>
+              </LinearGradient>
             </View>
           </Modal>
 
           <Modal
-            visible={evidenceModalVisible}
-            transparent={true}
+            visible={deleteConfirmVisible}
+            transparent
             animationType="fade"
-            onRequestClose={() => setEvidenceModalVisible(false)}
+            onRequestClose={() => setDeleteConfirmVisible(false)}
           >
-            <View style={styles.evidenceModalContainer}>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setEvidenceModalVisible(false)}
+            <View style={styles.modalOverlay}>
+              <LinearGradient
+                colors={['#2D1B69', '#1a0033']}
+                style={styles.modalContainer}
               >
-                <Feather name="x" size={24} color="#fff" />
-              </TouchableOpacity>
+                <Text style={styles.modalTitle}>Confirm Delete</Text>
+                <Text style={[styles.commentText, { marginBottom: 15 }]}>
+                  Are you sure you want to delete this dare?
+                </Text>
 
-              {selectedEvidence?.type === "video" ? (
-                <View style={styles.videoContainer}>
-                  <ActivityIndicator size="large" color="#fff" />
-                  <Video
-                    source={{ uri: selectedEvidence.url }}
-                    shouldPlay
-                    useNativeControls
-                    style={styles.fullScreenVideo}
-                  />
-                </View>
-              ) : (
-                selectedEvidence && (
-                  <WebView
-                    source={{
-                      html: `
-                        <html>
-                          <head>
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                            <style>
-                              body {
-                                margin: 0;
-                                padding: 0;
-                                background: black;
-                                display: flex;
-                                justify-content: center;
-                                align-items: center;
-                                height: 100vh;
-                              }
-                              img {
-                                max-width: 100%;
-                                max-height: 100%;
-                                object-fit: contain;
-                              }
-                            </style>
-                          </head>
-                          <body>
-                            <img src="${selectedEvidence.url}" />
-                          </body>
-                        </html>
-                      `,
-                    }}
-                    style={styles.fullScreenImage}
-                    onError={(e) => {
-                      console.error("WebView error:", e);
-                      Alert.alert(
-                        "Error",
-                        "Failed to load the image. It may have expired or is unavailable."
-                      );
-                      setEvidenceModalVisible(false);
-                    }}
-                  />
-                )
-              )}
+                <TouchableOpacity
+                  style={styles.menuButton}
+                  onPress={async () => {
+                    if (dareIdToDelete) {
+                      await remove(ref(db, `dares/${dareIdToDelete}`));
+                      setMenuVisible(false);
+                    }
+                    setDeleteConfirmVisible(false);
+                  }}
+                >
+                  <Text style={styles.menuButtonText}>Yes, Delete</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.menuButton, styles.cancelButton]}
+                  onPress={() => setDeleteConfirmVisible(false)}
+                >
+                  <Text style={styles.menuButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </LinearGradient>
             </View>
           </Modal>
-        </View>
 
-        <Modal
-          visible={timedOutModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setTimedOutModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <Text style={styles.modalTitle}>Timed Out</Text>
-              <Text style={[styles.commentText, { marginBottom: 15 }]}>
-                You can no longer edit this dare because more than 2 minutes have passed.
-              </Text>
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => setTimedOutModalVisible(false)}
+          <Modal visible={sidebarVisible} transparent animationType="slide" onRequestClose={() => setSidebarVisible(false)}>
+            <View style={{ flex: 1, flexDirection: 'row' }}>
+              <LinearGradient
+                colors={['#2D1B69', '#1a0033']}
+                style={styles.sidebarContainer}
               >
-                <Text style={styles.menuButtonText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-        <Modal
-          visible={likeModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setLikeModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContainer, { maxHeight: 400 }]}>
-              <Text style={styles.modalTitle}>👍 Liked By</Text>
-
-              <FlatList
-                data={likedUsers}
-                keyExtractor={(item, index) => index.toString()}
-                style={{ marginBottom: 10 }}
-                contentContainerStyle={{ paddingVertical: 5 }}
-                renderItem={({ item }) => (
-                  <Text style={{
-                    fontSize: 17,
-                    color: '#fff',
-                    fontFamily: 'Montserrat-SemiBold',
-                    marginBottom: 10
-                  }}>
-                    • {item}
-                  </Text>
-                )}
-              />
-
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => setLikeModalVisible(false)}
-              >
-                <Text style={styles.menuButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
-          visible={deleteConfirmVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setDeleteConfirmVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <Text style={styles.modalTitle}>Confirm Delete</Text>
-              <Text style={[styles.commentText, { marginBottom: 15 }]}>
-                Are you sure you want to delete this dare?
-              </Text>
-
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={async () => {
-                  if (dareIdToDelete) {
-                    await remove(ref(db, `dares/${dareIdToDelete}`));
-                    setMenuVisible(false);
-                  }
-                  setDeleteConfirmVisible(false);
-                }}
-              >
-                <Text style={styles.menuButtonText}>Yes, Delete</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.menuButton, styles.cancelButton]}
-                onPress={() => setDeleteConfirmVisible(false)}
-              >
-                <Text style={styles.menuButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal visible={sidebarVisible} transparent animationType="slide" onRequestClose={() => setSidebarVisible(false)}>
-          <View style={{ flex: 1, flexDirection: 'row' }}>
-            <View style={{
-              width: 250,
-              backgroundColor: '#350064',
-              paddingVertical: 40,
-              paddingHorizontal: 20
-            }}>
-              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
-                setSidebarVisible(false);
-                routerInstance.push('/profile');
-              }}>
-                <Feather name="user" size={20} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 10 }}>My Profile</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
-                setSidebarVisible(false);
-                setLeaderboardVisible(true);
-              }}>
-                <Feather name="bar-chart" size={20} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 10 }}>Leaderboard</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
-                setSidebarVisible(false);
-                routerInstance.push('/my-dares');
-              }}>
-                <Feather name="list" size={20} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 10 }}>My Accepted Dares</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={{ marginTop: 30 }} onPress={() => {
-                setSidebarVisible(false);
-                handleLogout();
-              }}>
-                <TouchableOpacity style={{ marginBottom: 30 }} onPress={() => {
+                <TouchableOpacity style={styles.sidebarItem} onPress={() => {
+                  setSidebarVisible(false);
+                  routerInstance.push('/profile');
+                }}>
+                  <Feather name="user" size={20} color="#fff" />
+                  <Text style={styles.sidebarText}>My Profile</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.sidebarItem} onPress={() => {
+                  setSidebarVisible(false);
+                  setLeaderboardVisible(true);
+                }}>
+                  <Feather name="bar-chart" size={20} color="#fff" />
+                  <Text style={styles.sidebarText}>Leaderboard</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.sidebarItem} onPress={() => {
+                  setSidebarVisible(false);
+                  routerInstance.push('/my-dares');
+                }}>
+                  <Feather name="list" size={20} color="#fff" />
+                  <Text style={styles.sidebarText}>My Accepted Dares</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.sidebarItem} onPress={() => {
                   setSidebarVisible(false);
                   routerInstance.push('/declined');
                 }}>
                   <Feather name="slash" size={20} color="#fff" />
-                  <Text style={{ color: '#fff', marginLeft: 10 }}>Declined Dares</Text>
+                  <Text style={styles.sidebarText}>Declined Dares</Text>
                 </TouchableOpacity>
-
-                <Feather name="log-out" size={20} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 10 }}>Logout</Text>
-              </TouchableOpacity>
+                <TouchableOpacity style={styles.sidebarItem} onPress={() => {
+                  setSidebarVisible(false);
+                  handleLogout();
+                }}>
+                  <Feather name="log-out" size={20} color="#fff" />
+                  <Text style={styles.sidebarText}>Logout</Text>
+                </TouchableOpacity>
+              </LinearGradient>
+              <TouchableOpacity style={{ flex: 1 }} onPress={() => setSidebarVisible(false)} />
             </View>
-            <TouchableOpacity style={{ flex: 1 }} onPress={() => setSidebarVisible(false)} />
-          </View>
-        </Modal>
+          </Modal>
 
+          <Modal
+            visible={confirmAcceptVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setConfirmAcceptVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <LinearGradient
+                colors={['#2D1B69', '#1a0033']}
+                style={styles.modalContainer}
+              >
+                <Text style={styles.modalTitle}>Confirm Accept</Text>
+                <Text style={[styles.commentText, { marginBottom: 15 }]}>
+                  Are you sure you want to accept this dare?
+                </Text>
+                <TouchableOpacity
+                  style={styles.menuButton}
+                  onPress={async () => {
+                    if (dareIdToConfirm) await handleAcceptDare(dareIdToConfirm);
+                    setConfirmAcceptVisible(false);
+                  }}
+                >
+                  <Text style={styles.menuButtonText}>Yes, Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.menuButton, styles.cancelButton]}
+                  onPress={() => setConfirmAcceptVisible(false)}
+                >
+                  <Text style={styles.menuButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          </Modal>
+
+          <Modal
+            visible={confirmDeclineVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setConfirmDeclineVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <LinearGradient
+                colors={['#2D1B69', '#1a0033']}
+                style={styles.modalContainer}
+              >
+                <Text style={styles.modalTitle}>Confirm Decline</Text>
+                <Text style={[styles.commentText, { marginBottom: 15 }]}>
+                  Are you sure you want to decline this dare?
+                </Text>
+                <TouchableOpacity
+                  style={styles.menuButton}
+                  onPress={async () => {
+                    if (!dareIdToConfirm || !user) return;
+                    const dare = dares.find((d) => d.id === dareIdToConfirm);
+                    await update(ref(db, `dares/${dareIdToConfirm}`), {
+                      declinedBy: {
+                        ...(dare?.declinedBy || {}),
+                        [user.uid]: true,
+                      },
+                      status: "declined"
+                    });
+                    setConfirmDeclineVisible(false);
+                  }}
+                >
+                  <Text style={styles.menuButtonText}>Yes, Decline</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.menuButton, styles.cancelButton]}
+                  onPress={() => setConfirmDeclineVisible(false)}
+                >
+                  <Text style={styles.menuButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          </Modal>
+        </ScrollView>
       </LinearGradient>
-      <Modal
-        visible={confirmAcceptVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmAcceptVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Confirm Accept</Text>
-            <Text style={[styles.commentText, { marginBottom: 15 }]}>
-              Are you sure you want to accept this dare?
-            </Text>
-            <TouchableOpacity
-              style={styles.menuButton}
-              onPress={async () => {
-                if (dareIdToConfirm) await handleAcceptDare(dareIdToConfirm);
-                setConfirmAcceptVisible(false);
-              }}
-            >
-              <Text style={styles.menuButtonText}>Yes, Accept</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.menuButton, styles.cancelButton]}
-              onPress={() => setConfirmAcceptVisible(false)}
-            >
-              <Text style={styles.menuButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={confirmDeclineVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmDeclineVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Confirm Decline</Text>
-            <Text style={[styles.commentText, { marginBottom: 15 }]}>
-              Are you sure you want to decline this dare?
-            </Text>
-            <TouchableOpacity
-              style={styles.menuButton}
-              onPress={async () => {
-                if (!dareIdToConfirm || !user) return;
-                const dare = dares.find((d) => d.id === dareIdToConfirm);
-                await update(ref(db, `dares/${dareIdToConfirm}`), {
-                  declinedBy: {
-                    ...(dare?.declinedBy || {}),
-                    [user.uid]: true,
-                  },
-                  status: "declined"
-                });
-                setConfirmDeclineVisible(false);
-              }}
-            >
-              <Text style={styles.menuButtonText}>Yes, Decline</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.menuButton, styles.cancelButton]}
-              onPress={() => setConfirmDeclineVisible(false)}
-            >
-              <Text style={styles.menuButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 }
@@ -1733,22 +1680,69 @@ export default function Challenges() {
 const styles = StyleSheet.create<{
   gradient: ViewStyle;
   loadingContainer: ViewStyle;
+  scrollContainer: ViewStyle;
+  scrollContent: ViewStyle;
   container: ViewStyle;
   headerContainer: ViewStyle;
+  iconContainer: ViewStyle;
   title: TextStyle;
+  pointsContainer: ViewStyle;
+  pointsText: TextStyle;
+  badgesContainer: ViewStyle;
+  badgesText: TextStyle;
+  searchContainer: ViewStyle;
+  searchIcon: ViewStyle;
+  searchInput: TextStyle;
+  categoriesScrollView: ViewStyle;
+  categoriesContainer: ViewStyle;
+  categoryButton: ViewStyle;
+  categoryButtonActive: ViewStyle;
+  categoryText: TextStyle;
+  categoryTextActive: TextStyle;
   buttonContainer: ViewStyle;
+  buttonContainerSmall: ViewStyle;
   mainButton: ViewStyle;
+  mainButtonGradient: ViewStyle;
   buttonText: TextStyle;
   buttonIcon: ViewStyle;
+  randomDareContainer: ViewStyle;
+  randomDareTitle: TextStyle;
+  optionsScrollView: ViewStyle;
+  optionButton: ViewStyle;
+  optionButtonActive: ViewStyle;
+  optionText: TextStyle;
+  optionTextActive: TextStyle;
+  randomButton: ViewStyle;
+  randomButtonDisabled: ViewStyle;
+  randomButtonGradient: ViewStyle;
+  randomButtonText: TextStyle;
+  randomErrorText: TextStyle;
+  randomDareResult: ViewStyle;
+  randomDareChallenge: TextStyle;
+  randomDareDetail: TextStyle;
+  randomDareCriteria: TextStyle;
+  randomDareActions: ViewStyle;
+  randomAcceptButton: ViewStyle;
+  randomDeclineButton: ViewStyle;
+  randomActionText: TextStyle;
   list: ViewStyle;
   dareItem: ViewStyle;
   rowTop: ViewStyle;
+  menuButton: ViewStyle;
   dareText: TextStyle;
+  userInfoContainer: ViewStyle;
+  userInfoRow: ViewStyle;
   statusText: TextStyle;
+  usernameText: TextStyle;
+  statusValue: TextStyle;
+  profileButton: ViewStyle;
+  profileButtonText: TextStyle;
   row: ViewStyle;
+  rowSmall: ViewStyle;
   likeContainer: ViewStyle;
-  likeCount: TextStyle;
+  likeContainerSmall: ViewStyle;
   actionButton: ViewStyle;
+  likedButton: ViewStyle;
   actionIcon: ViewStyle;
   actionText: TextStyle;
   acceptButton: ViewStyle;
@@ -1760,37 +1754,37 @@ const styles = StyleSheet.create<{
   uploadingContainer: ViewStyle;
   uploadingText: TextStyle;
   evidenceContainer: ViewStyle;
-  evidenceTitle: TextStyle;
   evidenceText: TextStyle;
-  evidenceImage: ViewStyle;
-  evidenceImagePlaceholder: ViewStyle;
-  viewFullText: TextStyle;
   viewButton: ViewStyle;
   viewButtonText: TextStyle;
-  completedText: TextStyle;
   expiresText: TextStyle;
   expiredContainer: ViewStyle;
   expiredText: TextStyle;
   aiAnalysisContainer: ViewStyle;
   aiAnalysisTitle: TextStyle;
-  logoutButton: ViewStyle;
-  logoutText: TextStyle;
+  aiAnalysisText: TextStyle;
   modalOverlay: ViewStyle;
   modalContainer: ViewStyle;
   modalHeader: ViewStyle;
   modalTitle: TextStyle;
   commentsList: ViewStyle;
+  commentsListContainer: ViewStyle;
   commentItem: ViewStyle;
   commentAuthor: TextStyle;
   commentText: TextStyle;
+  commentTime: TextStyle;
+  replyText: TextStyle;
+  replyContainer: ViewStyle;
   commentInputContainer: ViewStyle;
-  input: TextStyle;
+  commentInput: TextStyle;
+  cancelReplyButton: ViewStyle;
+  cancelReplyText: TextStyle;
   addCommentButton: ViewStyle;
+  addCommentGradient: ViewStyle;
   menuModal: ViewStyle;
   menuContent: ViewStyle;
   menuTitle: TextStyle;
   menuInput: TextStyle;
-  menuButton: ViewStyle;
   menuButtonText: TextStyle;
   cancelButton: ViewStyle;
   closeButton: ViewStyle;
@@ -1798,167 +1792,575 @@ const styles = StyleSheet.create<{
   menuIcon: ViewStyle;
   menuOptionText: TextStyle;
   deleteText: TextStyle;
+  leaderboardHeader: ViewStyle;
+  leaderboardSubtitle: TextStyle;
+  leaderboardItem: ViewStyle;
+  leaderboardRank: TextStyle;
+  leaderboardInfo: ViewStyle;
+  leaderboardName: TextStyle;
+  leaderboardNameCurrent: TextStyle;
+  leaderboardStats: TextStyle;
+  likedUserText: TextStyle;
   evidenceModalContainer: ViewStyle;
+  evidenceCloseButton: ViewStyle;
+  evidenceCloseGradient: ViewStyle;
   fullScreenImage: ViewStyle;
   videoContainer: ViewStyle;
   fullScreenVideo: ViewStyle;
+  menuButtonFixed: ViewStyle;
+  menuButtonGradient: ViewStyle;
+  sidebarContainer: ViewStyle;
+  sidebarItem: ViewStyle;
+  sidebarText: TextStyle;
+  input: TextStyle;
 }>({
   gradient: {
-    flex: 1
+    flex: 1,
   },
 
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+  },
+
+  scrollContainer: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 30,
   },
 
   container: {
     flex: 1,
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
 
   headerContainer: {
     alignItems: 'center',
-    marginBottom: 20
+    marginBottom: 25,
+  },
+
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   title: {
     color: '#fff',
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginTop: 50
+    fontFamily: 'Montserrat-SemiBold',
+    textAlign: 'center',
+    marginBottom: 20,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+  },
+
+  pointsContainer: {
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  pointsText: {
+    color: '#FFD700',
+    fontSize: 18,
+    fontFamily: 'Montserrat-SemiBold',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  badgesContainer: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 15,
+    marginBottom: 20,
+  },
+
+  badgesText: {
+    color: '#E8D5FF',
+    fontStyle: 'italic',
+    fontFamily: 'Montserrat-ExtraLightItalic',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 4,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(232, 213, 255, 0.3)',
+    shadowColor: '#E8D5FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  searchIcon: {
+    marginRight: 12,
+  },
+
+  searchInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Montserrat-SemiBold',
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+  },
+
+  categoriesScrollView: {
+    marginBottom: 10,
+  },
+
+  categoriesContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 10,
+  },
+
+  categoryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginHorizontal: 6,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+
+  categoryButtonActive: {
+    backgroundColor: 'rgba(138, 43, 226, 0.8)',
+    borderColor: '#8A2BE2',
+    shadowColor: '#8A2BE2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  categoryText: {
+    color: '#E8D5FF',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14,
+  },
+
+  categoryTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 10
+    marginBottom: 25,
+    gap: 15,
+  },
+
+  buttonContainerSmall: {
+    flexDirection: 'column',
   },
 
   mainButton: {
+    flex: 1,
+    borderRadius: 15,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+
+  mainButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#6A0DAD',
-    padding: 12,
-    borderRadius: 10
+    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
   },
 
   buttonText: {
     color: '#fff',
-    fontSize: 14,
-    marginLeft: 8,
-    fontFamily: 'Montserrat-SemiBold'
+    fontSize: 16,
+    fontFamily: 'Montserrat-SemiBold',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 
   buttonIcon: {
-    marginRight: 8
+    marginRight: 8,
+  },
+
+  randomDareContainer: {
+    borderRadius: 20,
+    padding: 25,
+    marginBottom: 25,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+
+  randomDareTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontFamily: 'Montserrat-SemiBold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+
+  optionsScrollView: {
+    marginBottom: 15,
+  },
+
+  optionButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginHorizontal: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+
+  optionButtonActive: {
+    backgroundColor: 'rgba(75, 0, 130, 0.8)',
+    borderColor: '#4B0082',
+  },
+
+  optionText: {
+    color: '#E8D5FF',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 13,
+  },
+
+  optionTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+
+  randomButton: {
+    borderRadius: 15,
+    overflow: 'hidden',
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  randomButtonDisabled: {
+    opacity: 0.5,
+  },
+
+  randomButtonGradient: {
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+  },
+
+  randomButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 16,
+  },
+
+  randomErrorText: {
+    color: '#FF6B6B',
+    marginTop: 15,
+    fontFamily: 'Montserrat-SemiBold',
+    textAlign: 'center',
+  },
+
+  randomDareResult: {
+    marginTop: 20,
+    borderRadius: 15,
+    padding: 20,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+
+  randomDareChallenge: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat-SemiBold',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+
+  randomDareDetail: {
+    color: '#E8D5FF',
+    marginTop: 8,
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+
+  randomDareCriteria: {
+    color: '#E8D5FF',
+    marginTop: 8,
+    fontStyle: 'italic',
+    fontFamily: 'Montserrat-ExtraLightItalic',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+
+  randomDareActions: {
+    flexDirection: 'row',
+    marginTop: 20,
+    gap: 15,
+  },
+
+  randomAcceptButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 12,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+
+  randomDeclineButton: {
+    backgroundColor: '#FF6B6B',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 12,
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+
+  randomActionText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14,
   },
 
   list: {
-    paddingBottom: 20
+    paddingBottom: 30,
   },
 
   dareItem: {
-    padding: 15,
-    marginBottom: 15,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 20,
+    marginBottom: 20,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.15)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
   },
 
   rowTop: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: 10
+    marginBottom: 15,
+  },
+
+  menuButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
 
   dareText: {
     color: '#fff',
-    fontSize: 16,
-    marginBottom: 5,
-    fontFamily: 'Montserrat-SemiBold'
+    fontSize: 17,
+    marginBottom: 8,
+    fontFamily: 'Montserrat-SemiBold',
+    lineHeight: 24,
+  },
+
+  userInfoContainer: {
+    marginTop: 15,
+    padding: 15,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+
+  userInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
   },
 
   statusText: {
-    color: '#fff',
-    fontSize: 16,
-    marginBottom: 10,
+    color: '#E8D5FF',
+    fontSize: 15,
     fontFamily: 'Montserrat-SemiBold',
-    marginTop: 5
+    marginBottom: 8,
+  },
+
+  usernameText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+
+  statusValue: {
+    color: '#FFD700',
+    fontWeight: 'bold',
+  },
+
+  profileButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(90, 24, 154, 0.8)',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(90, 24, 154, 0.6)',
+  },
+
+  profileButtonText: {
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 12,
   },
 
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
-    gap: 10
+    marginTop: 15,
+    gap: 12,
+  },
+
+  rowSmall: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
   },
 
   likeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 0
+    gap: 10,
   },
 
-  likeCount: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
-    marginRight: 10,
-    fontFamily: 'Montserrat-ExtraLightItalic'
+  likeContainerSmall: {
+    width: '100%',
+    marginBottom: 10,
   },
 
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+
+  likedButton: {
+    backgroundColor: 'rgba(255, 107, 107, 0.8)',
+    borderColor: '#FF6B6B',
   },
 
   actionIcon: {
-    marginRight: 5
+    marginRight: 6,
   },
 
   actionText: {
     color: '#fff',
     fontFamily: 'Montserrat-SemiBold',
-    fontSize: 14
+    fontSize: 14,
   },
 
   acceptButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#4CAF50',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
 
   acceptText: {
     color: '#fff',
     fontFamily: 'Montserrat-SemiBold',
-    fontSize: 14
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 
   rejectButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ff6b6b',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8
+    backgroundColor: '#FF6B6B',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
 
   rejectText: {
     color: '#fff',
     fontFamily: 'Montserrat-SemiBold',
-    fontSize: 14
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 
   uploadButton: {
@@ -1966,81 +2368,58 @@ const styles = StyleSheet.create<{
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#4CAF50',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginTop: 15
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 15,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
   uploadButtonText: {
     color: '#fff',
     fontFamily: 'Montserrat-SemiBold',
-    fontSize: 15
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 
   uploadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginTop: 15
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
 
   uploadingText: {
-    marginLeft: 10,
+    marginLeft: 12,
     color: '#fff',
-    fontFamily: 'Montserrat-SemiBold'
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 15,
   },
 
   evidenceContainer: {
-    marginTop: 15,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginTop: 20,
+    padding: 15,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)'
-  },
-
-  evidenceTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    fontFamily: 'Montserrat-SemiBold'
+    borderColor: 'rgba(255,255,255,0.15)',
   },
 
   evidenceText: {
-    color: '#fff',
-    fontSize: 14,
-    marginBottom: 8,
-    fontFamily: 'Montserrat-ExtraLightItalic'
-  },
-
-  evidenceImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginTop: 5
-  },
-
-  evidenceImagePlaceholder: {
-    width: '100%',
-    height: 150,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 5
-  },
-
-  viewFullText: {
-    textAlign: 'center',
-    color: '#B788C4',
-    marginTop: 8,
-    fontFamily: 'Montserrat-SemiBoldItalic'
+    color: '#E8D5FF',
+    fontSize: 15,
+    marginBottom: 10,
+    fontFamily: 'Montserrat-ExtraLightItalic',
   },
 
   viewButton: {
@@ -2048,278 +2427,453 @@ const styles = StyleSheet.create<{
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#2196F3',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginTop: 8
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 10,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
 
   viewButtonText: {
     color: '#fff',
     fontFamily: 'Montserrat-SemiBold',
-    fontSize: 14
-  },
-
-  completedText: {
-    marginTop: 8,
-    fontStyle: 'italic',
-    color: '#4AC29A',
-    fontFamily: 'Montserrat-SemiBold',
-    fontWeight: '700',
-    fontSize: 16,
-    textShadowColor: 'rgba(74, 194, 154, 0.6)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 
   expiresText: {
-    marginTop: 8,
+    marginTop: 10,
     fontStyle: 'italic',
     color: '#FF9800',
     fontSize: 12,
-    fontFamily: 'Montserrat-ExtraLightItalic'
+    fontFamily: 'Montserrat-ExtraLightItalic',
   },
 
   expiredContainer: {
-    padding: 15,
+    padding: 20,
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
 
   expiredText: {
     color: 'rgba(255,255,255,0.6)',
     fontStyle: 'italic',
-    fontFamily: 'Montserrat-ExtraLightItalic'
+    fontFamily: 'Montserrat-ExtraLightItalic',
+    fontSize: 14,
   },
 
   aiAnalysisContainer: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.07)'
+    marginTop: 15,
+    padding: 15,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
 
   aiAnalysisTitle: {
     fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#fff'
-  },
-
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#6A0DAD',
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 10,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)'
-  },
-
-  logoutText: {
-    color: '#fff',
+    marginBottom: 8,
+    color: '#FFD700',
     fontFamily: 'Montserrat-SemiBold',
     fontSize: 15,
-    marginLeft: 8
+  },
+
+  aiAnalysisText: {
+    color: '#E8D5FF',
+    fontFamily: 'Montserrat-ExtraLightItalic',
+    fontSize: 13,
+    marginBottom: 4,
   },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
 
   modalContainer: {
     width: '90%',
     maxWidth: 500,
-    backgroundColor: '#4B0082',
-    borderRadius: 15,
-    padding: 20,
+    borderRadius: 20,
+    padding: 25,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    ...(isWeb ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } : {})
+    borderColor: 'rgba(255,255,255,0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
 
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
     paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)'
+    borderBottomColor: 'rgba(255,255,255,0.2)',
   },
 
   modalTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#FFD700',
-    marginBottom: 20,
+    marginBottom: 10,
     textShadowColor: 'rgba(0, 0, 0, 0.7)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
     fontFamily: 'Montserrat-SemiBold',
   },
 
   commentsList: {
-    flexGrow: 1
+    flexGrow: 1,
+  },
+
+  commentsListContainer: {
+    maxHeight: 300,
   },
 
   commentItem: {
-    padding: 12,
-    marginBottom: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8
+    padding: 15,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
 
   commentAuthor: {
     fontWeight: 'bold',
     color: '#B788C4',
-    marginBottom: 5,
-    fontFamily: 'Montserrat-SemiBold'
+    marginBottom: 6,
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 15,
   },
 
   commentText: {
     color: '#fff',
-    fontFamily: 'Montserrat-ExtraLightItalic'
-  },
-
-  commentInputContainer: {
-    flexDirection: 'row',
-    marginTop: 15
-  },
-
-  input: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8,
-    padding: 12,
-    color: '#fff',
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    fontFamily: 'Montserrat-SemiBold'
-  },
-
-  addCommentButton: {
-    backgroundColor: '#6A0DAD',
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-
-  menuModal: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-
-  menuContent: {
-    width: '80%',
-    maxWidth: 350,
-    backgroundColor: '#4B0082',
-    borderRadius: 15,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    maxHeight: isWeb ? '80%' : '90%', overflow: isWeb ? 'scroll' : 'hidden'
-  },
-
-  menuTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 15,
-    textAlign: 'center',
-    fontFamily: 'Montserrat-SemiBold'
-  },
-
-  menuInput: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8,
-    padding: 12,
-    color: '#fff',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    fontFamily: 'Montserrat-SemiBold'
-  },
-
-  menuButton: {
-    backgroundColor: '#6A0DAD',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 10
-  },
-
-  menuButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontFamily: 'Montserrat-SemiBold'
-  },
-
-  cancelButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)'
-  },
-
-  closeButton: {
-    marginTop: 5
-  },
-
-  menuOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12
-  },
-
-  menuIcon: {
-    marginRight: 8
-  },
-
-  menuOptionText: {
-    color: '#fff',
-    fontFamily: 'Montserrat-SemiBold'
-  },
-
-  deleteText: {
-    color: '#ff6b6b'
-  },
-
-  evidenceModalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-
-  fullScreenImage: {
-    width: '100%',
-    height: '100%'
-  },
-
-  videoContainer: {
-    width: '90%',
-    height: '80%'
-  },
-
-  fullScreenVideo: {
-    width: '100%',
-    height: '100%'
+    fontFamily: 'Montserrat-ExtraLightItalic',
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   commentTime: {
     fontSize: 11,
     color: '#aaa',
+    marginTop: 6,
+    fontFamily: 'Montserrat-Thin',
+  },
+
+  replyText: {
+    color: '#ccc',
+    fontSize: 13,
+    marginTop: 8,
+    fontFamily: 'Montserrat-SemiBold',
+  },
+
+  replyContainer: {
+    marginLeft: 25,
+    marginTop: 8,
+    paddingLeft: 15,
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(183, 136, 196, 0.5)',
+  },
+
+  commentInputContainer: {
+    marginTop: 20,
+  },
+
+  commentInput: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 15,
+    color: '#fff',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14,
+    minHeight: 50,
+    textAlignVertical: 'top',
+  },
+
+  cancelReplyButton: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+
+  cancelReplyText: {
+    color: '#CCCCFF',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14,
+  },
+
+  addCommentButton: {
+    alignSelf: 'flex-end',
+    borderRadius: 25,
+    overflow: 'hidden',
+    shadowColor: '#6A0DAD',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+
+  addCommentGradient: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  menuModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  menuContent: {
+    width: '85%',
+    maxWidth: 350,
+    borderRadius: 20,
+    padding: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+
+  menuTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 20,
+    textAlign: 'center',
+    fontFamily: 'Montserrat-SemiBold',
+  },
+
+  menuInput: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 15,
+    color: '#fff',
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14,
+  },
+
+  menuButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 16,
+  },
+
+  cancelButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+
+  closeButton: {
+    marginTop: 10,
+  },
+
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+
+  menuIcon: {
+    marginRight: 12,
+  },
+
+  menuOptionText: {
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 16,
+  },
+
+  deleteText: {
+    color: '#ff6b6b',
+  },
+
+  leaderboardHeader: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+
+  leaderboardSubtitle: {
+    color: '#ccc',
+    fontSize: 14,
+    fontStyle: 'italic',
+    fontFamily: 'Montserrat-ExtraLightItalic',
+    textAlign: 'center',
+  },
+
+  leaderboardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+
+  leaderboardRank: {
+    fontSize: 20,
+    width: 35,
+    textAlign: 'center',
+    fontFamily: 'Montserrat-SemiBold',
+  },
+
+  leaderboardInfo: {
+    flex: 1,
+    marginLeft: 15,
+  },
+
+  leaderboardName: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Montserrat-SemiBold',
+  },
+
+  leaderboardNameCurrent: {
+    color: '#FFD700',
+    fontWeight: 'bold',
+  },
+
+  leaderboardStats: {
+    color: '#ccc',
+    fontSize: 13,
     marginTop: 2,
-  }
+    fontFamily: 'Montserrat-ExtraLightItalic',
+  },
+
+  likedUserText: {
+    fontSize: 17,
+    color: '#fff',
+    fontFamily: 'Montserrat-SemiBold',
+    marginBottom: 12,
+    paddingLeft: 10,
+  },
+
+  evidenceModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  evidenceCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1000,
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+
+  evidenceCloseGradient: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  videoContainer: {
+    width: '90%',
+    height: '80%',
+  },
+
+  fullScreenVideo: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+  },
+
+  menuButtonFixed: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    left: 20,
+    zIndex: 1000,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+
+  menuButtonGradient: {
+    width: 56,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  sidebarContainer: {
+    width: 280,
+    paddingVertical: 50,
+    paddingHorizontal: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 5, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+
+  sidebarItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 30,
+    padding: 15,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+
+  sidebarText: {
+    color: '#fff',
+    marginLeft: 15,
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 16,
+  },
+
+  input: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 15,
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    fontFamily: 'Montserrat-SemiBold',
+    fontSize: 14,
+  },
 });
